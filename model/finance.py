@@ -1,16 +1,36 @@
 """
 Finance layer: converts Prediction energy output → revenue figures.
 
-Price assumption: €78/MWh (2024 SMARD day-ahead average, held flat).
+Price assumption: mean of SMARD day-ahead hourly prices (2018–2026), held flat.
+Falls back to €78/MWh if the SMARD CSV is not found.
 Illustrative only — lenders apply their own price assumptions.
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 import numpy as np
+import pandas as pd
 from model.data import Prediction
 
-# 2024 SMARD day-ahead average (EUR/MWh), converted to EUR/kWh
-ELECTRICITY_PRICE_EUR_PER_KWH = 78 / 1000  # €0.078/kWh
+# Fallback if SMARD CSV is unavailable
+_FALLBACK_PRICE_EUR_PER_KWH = 78 / 1000  # €0.078/kWh
+
+# Default path to the SMARD CSV relative to the repo root
+_DEFAULT_SMARD_PATH = Path(__file__).parent.parent / "backend" / "Smard Prices Data" / "price_data" / "germany_dayahead_prices.csv"
+
+# Resolved at import time; cached for the session
+def _load_smard_mean(path: Path = _DEFAULT_SMARD_PATH) -> tuple[float, str]:
+    """Return (mean price in EUR/kWh, provenance string)."""
+    if not path.exists():
+        return _FALLBACK_PRICE_EUR_PER_KWH, "€78/MWh (fallback — SMARD CSV not found)"
+    df = pd.read_csv(path, parse_dates=["datetime"])
+    mean_mwh = df["price_eur_mwh"].mean()
+    date_min = df["datetime"].min().strftime("%Y-%m")
+    date_max = df["datetime"].max().strftime("%Y-%m")
+    label = f"€{mean_mwh:.1f}/MWh (SMARD day-ahead mean {date_min}–{date_max})"
+    return mean_mwh / 1000, label
+
+ELECTRICITY_PRICE_EUR_PER_KWH, _PRICE_LABEL = _load_smard_mean()
 
 
 @dataclass
@@ -62,7 +82,7 @@ def format_for_ui(rev: RevenueProjection) -> dict:
     """JSON-ready dict for the frontend."""
     return {
         "scenario": rev.scenario,
-        "price_assumption": "€78/MWh (2024 SMARD day-ahead average, fixed)",
+        "price_assumption": _PRICE_LABEL,
         "lifetime_baseline_meur": round(rev.lifetime_baseline_eur / 1e6, 1),
         "lifetime_p50_meur": round(rev.lifetime_p50_eur / 1e6, 1),
         "lifetime_p90_meur": round(rev.lifetime_p90_eur / 1e6, 1),
