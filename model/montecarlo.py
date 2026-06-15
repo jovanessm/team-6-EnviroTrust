@@ -34,6 +34,12 @@ def simulate(
     3. Parameter uncertainty (gamma, PR, degradation rate)
     4. Scenario (fixed by input ClimateDeltas — run once per scenario)
 
+    Uses **common random numbers**: within each draw/year the baseline and
+    climate-adjusted paths share the same sampled weather year and the same
+    parameter draws, differing only by the climate signal. This cancels
+    interannual GHI variance from the delta so the small (~1-3%) climate effect
+    is not swamped by ~5-10% weather noise.
+
     Optionally applies heat-tail derating per year (from EnviroTrust wildfire timeseries).
 
     Args:
@@ -62,38 +68,41 @@ def simulate(
     annual_energies_baseline = np.zeros((n_draws, n_years))
 
     for draw in range(n_draws):
-        # Sample parameters once per draw
+        # Sample parameters once per draw — SHARED by both paths (common random numbers)
         gamma = rng.normal(park.gamma, 2e-4)
         pr = rng.normal(PR_NONTHERMAL_DEFAULT, 0.02)
         d0 = rng.normal(DEGRADATION_RATE_DEFAULT, 5e-4)
 
-        # Baseline: typical year flat, standard compounding degradation
-        e_year_base = annual_energy(
-            typical_ghi,
-            typical_temp,
-            park.capacity_kwp,
-            gamma=gamma,
-            noct=park.noct_c,
-            pr_nonthermal=pr,
-        )
-        deg_baseline = degradation_factor(years, d0=d0)
-        annual_energies_baseline[draw, :] = e_year_base * deg_baseline
-
-        # Sample climate scalar once per draw (correlated trajectory)
+        # Sample climate scalar once per draw (correlated trajectory across years)
         m = rng.standard_normal()
         dT_draw = deltas.dT_per_year + m * deltas.dT_model_std  # shape (n_years,)
 
-        # Arrhenius: adjusted path uses temperature-accelerated degradation
+        # Degradation: baseline standard, adjusted Arrhenius-accelerated (same d0)
+        deg_baseline = degradation_factor(years, d0=d0)
         deg_adjusted = degradation_factor(years, d0=d0, accelerated=True, dT_per_year=dT_draw)
 
         for year in range(n_years):
-            dT = dT_draw[year]
-
-            # Resample a historical year, shift temperature by climate delta
+            # Common random numbers: sample ONE weather year and use it for BOTH
+            # paths. Baseline and adjusted then differ ONLY by the climate signal
+            # (temperature delta + heat-tail + Arrhenius aging), so interannual GHI
+            # variance cancels in the delta instead of swamping it. Without this,
+            # the ~1-3% climate signal is buried under ~5-10% weather noise and the
+            # lifetime delta can come out the wrong sign.
             ghi_sampled, temp_sampled = sample_year(baseline.ghi, baseline.temp_amb, rng)
-            temp_shifted = apply_delta(temp_sampled, dT)
 
-            # Apply heat-tail: extra bump on hottest hours from wildfire/heatwave data
+            # Baseline path: this year's weather, no climate shift
+            e_year_base = annual_energy(
+                ghi_sampled,
+                temp_sampled,
+                park.capacity_kwp,
+                gamma=gamma,
+                noct=park.noct_c,
+                pr_nonthermal=pr,
+            )
+            annual_energies_baseline[draw, year] = e_year_base * deg_baseline[year]
+
+            # Adjusted path: SAME weather + temperature delta + heat-tail
+            temp_shifted = apply_delta(temp_sampled, dT_draw[year])
             if heat_tail_series is not None:
                 temp_shifted = heat_tail(temp_shifted, dT_extra=heat_tail_series[year])
 
@@ -105,28 +114,35 @@ def simulate(
                 noct=park.noct_c,
                 pr_nonthermal=pr,
             )
-
             annual_energies_adjusted[draw, year] = e_year_adj * deg_adjusted[year]
 
-    # Aggregate percentiles per year
+    # Per-year fan from the climate-adjusted distribution (includes weather spread)
     p10_annual = np.percentile(annual_energies_adjusted, 10, axis=0)
     p50_annual = np.percentile(annual_energies_adjusted, 50, axis=0)
     p90_annual = np.percentile(annual_energies_adjusted, 90, axis=0)
-    baseline_annual = np.mean(annual_energies_baseline, axis=0)
+    # Baseline flat line: median sampled year (same statistic as the P50 fan, so the
+    # two lines are visually comparable and the P50 sits below baseline as expected)
+    baseline_annual = np.median(annual_energies_baseline, axis=0)
 
     lifetime_baseline = np.sum(baseline_annual)
     lifetime_p50 = np.sum(p50_annual)
     lifetime_p90 = np.sum(p90_annual)
-    delta_pct = (lifetime_p50 - lifetime_baseline) / lifetime_baseline * 100
 
-    rcp26_note = (
-        "synthesized from RCP4.5 x IPCC AR6 CE ratio 0.61 "
-        "(SSP1-2.6 1.1°C / SSP2-4.5 1.8°C by 2041-60, Table 4.5)"
-        if deltas.scenario == "RCP2.6" else None
-    )
+    # Headline climate delta: mean of per-draw PAIRED lifetime differences. Because
+    # baseline and adjusted share the same weather within each draw (common random
+    # numbers), each paired difference isolates the pure climate effect; averaging
+    # gives a stable, correctly-signed signal even though it is only ~1-3% of output.
+    # Comparing summed percentiles instead would mix mean/median statistics and let
+    # weather noise flip the sign.
+    lt_base_per_draw = annual_energies_baseline.sum(axis=1)
+    lt_adj_per_draw = annual_energies_adjusted.sum(axis=1)
+    delta_pct = float(np.mean((lt_adj_per_draw - lt_base_per_draw) / lt_base_per_draw) * 100)
+
     provenance = {
         "scenario": deltas.scenario,
-        "scenario_source": rcp26_note or "EnviroTrust API heat-wind/timeseries",
+        "scenario_source": deltas.source or "unspecified",
+        "dT_30yr_c": round(float(deltas.dT_per_year[-1]), 2),
+        "dT_model_std_source": deltas.std_source or "unspecified",
         "n_draws": n_draws,
         "park_name": park.name,
         "park_lat": park.lat,
@@ -134,7 +150,7 @@ def simulate(
         "park_capacity_kwp": park.capacity_kwp,
         "heat_tail_applied": heat_tail_series is not None,
         "arrhenius_degradation": True,
-        "dT_model_std_source": "EnviroTrust proxy (30% of delta)",
+        "variance_reduction": "common random numbers (baseline & adjusted share weather + params per draw)",
     }
 
     return Prediction(

@@ -18,3 +18,4 @@ Thumbs.db
 
 # Generated files — run precompute.py to regenerate
 backend/api_cache/
+backend/cmip6_cache/

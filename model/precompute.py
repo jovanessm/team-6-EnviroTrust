@@ -1,13 +1,18 @@
 """
 Pre-compute simulation results for all solar parks.
 
-Runs simulate() for all parks × RCP4.5 + RCP8.5, saves one JSON file
+Runs simulate() for all parks × RCP2.6 / RCP4.5 / RCP8.5 and saves one JSON file
 to backend/precomputed.json so the API can serve results instantly.
+
+ΔT signal comes from the CMIP6 7-model ensemble (Open-Meteo HighResMIP, cached
+to backend/cmip6_cache/). ERA5 provides the baseline weather. The EnviroTrust
+daily-max-temp and wildfire fields are NOT used — both are annual extremes with
+no usable trend (see model/cmip6.py).
 
 Usage:
     python -m model.precompute
     python -m model.precompute --output path/to/output.json
-    python -m model.precompute --dry-run   # validate ERA5 + API without full MC
+    python -m model.precompute --dry-run   # validate ERA5 + CMIP6 without full MC
 """
 
 import sys
@@ -29,31 +34,14 @@ load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
 
 from model.parks import ALL_PARKS
 from model.data import ParkSpecs, BaselineWeather
-from model.adapters import build_all_scenarios, wildfire_to_heat_tail, IPCC_AR6_RCP26_SCALE
+from model.cmip6 import fetch_ensemble_annual, build_all_scenarios_cmip6, heat_tail_from_deltas
 from model.montecarlo import simulate
 from model.finance import energy_to_revenue, format_for_ui
+from model.config import LIFETIME_YEARS
 
 ERA5_DIR = Path(__file__).parent.parent / "backend" / "CDS Data" / "era5_data"
 DEFAULT_OUTPUT = Path(__file__).parent.parent / "backend" / "precomputed.json"
-API_CACHE_DIR = Path(__file__).parent.parent / "backend" / "api_cache"
-
-
-def _api_cache_path(park_name: str) -> Path:
-    return API_CACHE_DIR / f"{park_name}.json"
-
-
-def _load_api_cache(park_name: str) -> dict | None:
-    p = _api_cache_path(park_name)
-    if p.exists():
-        with open(p) as f:
-            return json.load(f)
-    return None
-
-
-def _save_api_cache(park_name: str, data: dict) -> None:
-    API_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    with open(_api_cache_path(park_name), "w") as f:
-        json.dump(data, f)
+CMIP6_CACHE_DIR = Path(__file__).parent.parent / "backend" / "cmip6_cache"
 
 
 def load_baseline(park_name: str) -> BaselineWeather | None:
@@ -98,9 +86,6 @@ def prediction_to_dict(pred, finance: dict) -> dict:
 
 
 def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
-    from EnviroTrustAPI.client import EnviroTrustClient
-    client = EnviroTrustClient()
-
     # Resume: load existing output and keep already-computed parks
     existing: dict[str, dict] = {}
     if output_path.exists():
@@ -135,48 +120,34 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
         mean_temp = float(np.mean(baseline.temp_amb))
         print(f"  ERA5: {n_hours:,} hours ({n_hours/8760:.1f} yr), mean temp {mean_temp:.1f}°C")
 
-        cached = _load_api_cache(park.name)
-        if cached:
-            print(f"  EnviroTrust API — using cache")
-            timeseries = cached["timeseries"]
-            wildfire = cached["wildfire"]
-        else:
-            print(f"  EnviroTrust API (lat={park.lat}, lon={park.lon})...")
-            try:
-                timeseries = client.get_heat_wind_timeseries(
-                    park.lat, park.lon, 2024, 2054
-                )["heat_wind_timeseries_data"]
-                time.sleep(3)
-                wildfire = client.get_wildfire_timeseries(
-                    park.lat, park.lon, 2024, 2054
-                )["wildfire_risk_timeseries_data"]
-                time.sleep(3)
-                _save_api_cache(park.name, {"timeseries": timeseries, "wildfire": wildfire})
-            except Exception as e:
-                print(f"  SKIP — API error: {e}")
-                skipped.append(park.name)
-                continue
+        # CMIP6 7-model ensemble (Open-Meteo HighResMIP) → ΔT signal + model spread
+        cache_path = CMIP6_CACHE_DIR / f"{park.name}.json"
+        try:
+            ensemble = fetch_ensemble_annual(park.lat, park.lon, cache_path)
+        except Exception as e:
+            print(f"  SKIP — CMIP6 fetch error: {e}")
+            skipped.append(park.name)
+            continue
+        if len(ensemble) < 3:
+            print(f"  SKIP — only {len(ensemble)} CMIP6 models returned")
+            skipped.append(park.name)
+            continue
+        if not cache_path.exists():
+            time.sleep(3)  # be polite to the API on a fresh fetch
 
-        n_years = len(timeseries)
-        heat_tail_rcp45 = wildfire_to_heat_tail(wildfire, n_years)
-        # RCP2.6 has fewer extreme-heat days — scale heat-tail by same IPCC ratio
-        heat_tail_rcp26 = heat_tail_rcp45 * IPCC_AR6_RCP26_SCALE
-        scenarios = build_all_scenarios(timeseries, mean_temp)
+        scenarios = build_all_scenarios_cmip6(ensemble, n_years=LIFETIME_YEARS)
+        warming = {n: d.dT_per_year[-1] for n, d in scenarios.items()}
+        print(f"  CMIP6: {len(ensemble)} models, 30yr warming "
+              f"RCP2.6={warming['RCP2.6']:+.2f} RCP4.5={warming['RCP4.5']:+.2f} RCP8.5={warming['RCP8.5']:+.2f}°C")
 
         if dry_run:
-            print(f"  DRY RUN — skipping simulate() ({n_years} projection years, {list(scenarios.keys())})")
+            print(f"  DRY RUN — skipping simulate() ({LIFETIME_YEARS} years, {list(scenarios.keys())})")
             continue
 
         park_entry = {**park_to_dict(park), "scenarios": {}}
 
-        heat_tail_by_scenario = {
-            "RCP2.6": heat_tail_rcp26,
-            "RCP4.5": heat_tail_rcp45,
-            "RCP8.5": heat_tail_rcp45,  # wildfire API has no RCP8.5 split; conservative
-        }
-
         for scenario_name, deltas in scenarios.items():
-            heat_tail_series = heat_tail_by_scenario[scenario_name]
+            heat_tail_series = heat_tail_from_deltas(deltas)
             print(f"  simulate() {scenario_name} ({n_draws} draws)...", end=" ", flush=True)
             pred = simulate(park, baseline, deltas, n_draws=n_draws, heat_tail_series=heat_tail_series)
             rev = energy_to_revenue(pred)
@@ -185,9 +156,6 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
             print(f"delta={pred.delta_pct:+.2f}%  P50={pred.lifetime_p50/1e6:.1f} GWh")
 
         output["parks"].append(park_entry)
-
-        if i < len(ALL_PARKS):
-            time.sleep(5)
 
     if not dry_run:
         output_path.parent.mkdir(parents=True, exist_ok=True)

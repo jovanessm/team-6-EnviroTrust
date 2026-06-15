@@ -28,9 +28,11 @@ class BaselineWeather:
 @dataclass
 class ClimateDeltas:
     """Temperature change projections from climate models (delta method)."""
-    scenario: str  # "SSP1-2.6" | "SSP2-4.5" | "SSP5-8.5"
+    scenario: str  # "RCP2.6" | "RCP4.5" | "RCP8.5"
     dT_per_year: np.ndarray  # °C, shape (n_years,), added to baseline temp each year
     dT_model_std: np.ndarray  # °C, shape (n_years,), ensemble spread per year
+    source: str = ""  # provenance: where the ΔT signal came from
+    std_source: str = ""  # provenance: where dT_model_std came from
 
 
 @dataclass
