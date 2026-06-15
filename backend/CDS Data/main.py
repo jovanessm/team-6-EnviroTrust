@@ -10,11 +10,7 @@ covering 2000–2026.
 ✅ Powered by Open-Meteo (https://open-meteo.com), which serves ERA5 data
    directly via a free HTTP API
 
-Variables fetched (wind + solar yield modelling):
-  - wind_speed_10m          → wind speed at 10m, km/h
-  - wind_speed_100m         → wind speed at turbine hub height 100m, km/h
-  - wind_direction_10m      → wind direction at 10m, degrees
-  - wind_direction_100m     → wind direction at 100m, degrees
+Variables fetched (solar yield modelling):
   - shortwave_radiation     → solar irradiance GHI at surface, W/m²
   - temperature_2m          → air temperature at 2m, °C
   - surface_pressure        → atmospheric pressure, hPa
@@ -53,39 +49,26 @@ API_URL     = "https://archive-api.open-meteo.com/v1/archive"
 
 # Open-Meteo variable names for ERA5
 VARIABLES = [
-    "wind_speed_10m",       # Wind speed at 10m (km/h)
-    "wind_speed_100m",      # Wind speed at 100m hub height (km/h)
-    "wind_direction_10m",   # Wind direction at 10m (degrees)
-    "wind_direction_100m",  # Wind direction at 100m (degrees)
     "shortwave_radiation",  # Solar irradiance GHI (W/m²)
     "temperature_2m",       # Air temperature at 2m (°C)
     "surface_pressure",     # Atmospheric pressure (hPa)
     "cloud_cover",          # Total cloud cover (%)
 ]
 
-# ── 20 German renewable energy parks ─────────────────────────────────────────
+# ── 9 German solar parks ──────────────────────────────────────────────────────
 PARKS = [
     # (name, type, state, lat, lon)
-    ("Buergerwindpark_Reussenkoge",        "wind",  "Schleswig-Holstein",      54.627,  8.902),
-    ("Windpark_Holtriem",                  "wind",  "Lower_Saxony",            53.610,  7.429),
-    ("Eggebek_Solar_Park",                 "solar", "Schleswig-Holstein",      54.629,  9.343),
-    ("Windpark_Kessin",                    "wind",  "Mecklenburg-Vorpommern",  53.727, 13.329),
-    ("Solarpark_Weesow_Willmersdorf",      "solar", "Brandenburg",             52.652, 13.694),
-    ("Solarpark_Gottesgabe_Neuhardenberg", "solar", "Brandenburg",             52.640, 14.189),
-    ("Brandenburg_Briest_Solarpark",       "solar", "Brandenburg",             52.437, 12.451),
-    ("Finsterwalde_Solar_Park",            "solar", "Brandenburg",             51.571, 13.750),
-    ("Krughuette_Solar_Park",              "solar", "Saxony-Anhalt",           51.527, 11.521),
-    ("Windpark_Druiberg",                  "wind",  "Saxony-Anhalt",           51.870, 11.020),
-    ("Hesselbach_Wind_Farm",               "wind",  "North_Rhine-Westphalia",  50.908,  8.384),
-    ("Windpark_Harz",                      "wind",  "Lower_Saxony",            51.750, 10.750),
-    ("Windpark_Odervorland",               "wind",  "Brandenburg",             52.250, 14.650),
-    ("Windpark_Veenhusen",                 "wind",  "Lower_Saxony",            53.310,  7.580),
-    ("Solarpark_Meuro",                    "solar", "Brandenburg_Saxony",      51.530, 14.010),
-    ("Windpark_Hohe_Geest",                "wind",  "Schleswig-Holstein",      54.050,  9.200),
-    ("Ernsthof_Solar_Park",                "solar", "Baden-Wuerttemberg",      49.707,  9.475),
-    ("Lauingen_Energy_Park",               "solar", "Bavaria",                 48.537, 10.424),
-    ("Strasskirchen_Solar_Park",           "solar", "Bavaria",                 48.809, 12.755),
-    ("Solarpark_Pocking",                  "solar", "Bavaria",                 48.368, 13.299),
+    ("Eggebek_Solar_Park",                 "solar", "Schleswig-Holstein",  54.629,  9.343),
+    ("Solarpark_Weesow_Willmersdorf",      "solar", "Brandenburg",         52.652, 13.694),
+    ("Solarpark_Gottesgabe_Neuhardenberg", "solar", "Brandenburg",         52.640, 14.189),
+    ("Brandenburg_Briest_Solarpark",       "solar", "Brandenburg",         52.437, 12.451),
+    ("Finsterwalde_Solar_Park",            "solar", "Brandenburg",         51.571, 13.750),
+    ("Krughuette_Solar_Park",              "solar", "Saxony-Anhalt",       51.527, 11.521),
+    ("Solarpark_Meuro",                    "solar", "Brandenburg_Saxony",  51.530, 14.010),
+    ("Ernsthof_Solar_Park",                "solar", "Baden-Wuerttemberg",  49.707,  9.475),
+    ("Lauingen_Energy_Park",               "solar", "Bavaria",             48.537, 10.424),
+    ("Strasskirchen_Solar_Park",           "solar", "Bavaria",             48.809, 12.755),
+    ("Solarpark_Pocking",                  "solar", "Bavaria",             48.368, 13.299),
 ]
 
 

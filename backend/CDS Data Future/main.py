@@ -54,29 +54,20 @@ VARIABLES = [
     "shortwave_radiation_sum",  # MJ/m² — solar irradiance (GHI)
 ]
 
-# ── Same 20 parks as CDS Data/main.py ────────────────────────────────────────
+# ── 9 German solar parks (mirrors CDS Data/main.py) ─────────────────────────
 PARKS = [
     # (name, type, state, lat, lon)
-    ("Buergerwindpark_Reussenkoge",        "wind",  "Schleswig-Holstein",      54.627,  8.902),
-    ("Windpark_Holtriem",                  "wind",  "Lower_Saxony",            53.610,  7.429),
-    ("Eggebek_Solar_Park",                 "solar", "Schleswig-Holstein",      54.629,  9.343),
-    ("Windpark_Kessin",                    "wind",  "Mecklenburg-Vorpommern",  53.727, 13.329),
-    ("Solarpark_Weesow_Willmersdorf",      "solar", "Brandenburg",             52.652, 13.694),
-    ("Solarpark_Gottesgabe_Neuhardenberg", "solar", "Brandenburg",             52.640, 14.189),
-    ("Brandenburg_Briest_Solarpark",       "solar", "Brandenburg",             52.437, 12.451),
-    ("Finsterwalde_Solar_Park",            "solar", "Brandenburg",             51.571, 13.750),
-    ("Krughuette_Solar_Park",              "solar", "Saxony-Anhalt",           51.527, 11.521),
-    ("Windpark_Druiberg",                  "wind",  "Saxony-Anhalt",           51.870, 11.020),
-    ("Hesselbach_Wind_Farm",               "wind",  "North_Rhine-Westphalia",  50.908,  8.384),
-    ("Windpark_Harz",                      "wind",  "Lower_Saxony",            51.750, 10.750),
-    ("Windpark_Odervorland",               "wind",  "Brandenburg",             52.250, 14.650),
-    ("Windpark_Veenhusen",                 "wind",  "Lower_Saxony",            53.310,  7.580),
-    ("Solarpark_Meuro",                    "solar", "Brandenburg_Saxony",      51.530, 14.010),
-    ("Windpark_Hohe_Geest",                "wind",  "Schleswig-Holstein",      54.050,  9.200),
-    ("Ernsthof_Solar_Park",                "solar", "Baden-Wuerttemberg",      49.707,  9.475),
-    ("Lauingen_Energy_Park",               "solar", "Bavaria",                 48.537, 10.424),
-    ("Strasskirchen_Solar_Park",           "solar", "Bavaria",                 48.809, 12.755),
-    ("Solarpark_Pocking",                  "solar", "Bavaria",                 48.368, 13.299),
+    ("Eggebek_Solar_Park",                 "solar", "Schleswig-Holstein",  54.629,  9.343),
+    ("Solarpark_Weesow_Willmersdorf",      "solar", "Brandenburg",         52.652, 13.694),
+    ("Solarpark_Gottesgabe_Neuhardenberg", "solar", "Brandenburg",         52.640, 14.189),
+    ("Brandenburg_Briest_Solarpark",       "solar", "Brandenburg",         52.437, 12.451),
+    ("Finsterwalde_Solar_Park",            "solar", "Brandenburg",         51.571, 13.750),
+    ("Krughuette_Solar_Park",              "solar", "Saxony-Anhalt",       51.527, 11.521),
+    ("Solarpark_Meuro",                    "solar", "Brandenburg_Saxony",  51.530, 14.010),
+    ("Ernsthof_Solar_Park",                "solar", "Baden-Wuerttemberg",  49.707,  9.475),
+    ("Lauingen_Energy_Park",               "solar", "Bavaria",             48.537, 10.424),
+    ("Strasskirchen_Solar_Park",           "solar", "Bavaria",             48.809, 12.755),
+    ("Solarpark_Pocking",                  "solar", "Bavaria",             48.368, 13.299),
 ]
 
 def _fetch_park_data(lat, lon, retry=3):
