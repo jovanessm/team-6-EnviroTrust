@@ -35,6 +35,25 @@ from model.finance import energy_to_revenue, format_for_ui
 
 ERA5_DIR = Path(__file__).parent.parent / "backend" / "CDS Data" / "era5_data"
 DEFAULT_OUTPUT = Path(__file__).parent.parent / "backend" / "precomputed.json"
+API_CACHE_DIR = Path(__file__).parent.parent / "backend" / "api_cache"
+
+
+def _api_cache_path(park_name: str) -> Path:
+    return API_CACHE_DIR / f"{park_name}.json"
+
+
+def _load_api_cache(park_name: str) -> dict | None:
+    p = _api_cache_path(park_name)
+    if p.exists():
+        with open(p) as f:
+            return json.load(f)
+    return None
+
+
+def _save_api_cache(park_name: str, data: dict) -> None:
+    API_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_api_cache_path(park_name), "w") as f:
+        json.dump(data, f)
 
 
 def load_baseline(park_name: str) -> BaselineWeather | None:
@@ -103,20 +122,27 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
         mean_temp = float(np.mean(baseline.temp_amb))
         print(f"  ERA5: {n_hours:,} hours ({n_hours/8760:.1f} yr), mean temp {mean_temp:.1f}°C")
 
-        print(f"  EnviroTrust API (lat={park.lat}, lon={park.lon})...")
-        try:
-            timeseries = client.get_heat_wind_timeseries(
-                park.lat, park.lon, 2024, 2054
-            )["heat_wind_timeseries_data"]
-            time.sleep(3)
-            wildfire = client.get_wildfire_timeseries(
-                park.lat, park.lon, 2024, 2054
-            )["wildfire_risk_timeseries_data"]
-            time.sleep(3)
-        except Exception as e:
-            print(f"  SKIP — API error: {e}")
-            skipped.append(park.name)
-            continue
+        cached = _load_api_cache(park.name)
+        if cached:
+            print(f"  EnviroTrust API — using cache")
+            timeseries = cached["timeseries"]
+            wildfire = cached["wildfire"]
+        else:
+            print(f"  EnviroTrust API (lat={park.lat}, lon={park.lon})...")
+            try:
+                timeseries = client.get_heat_wind_timeseries(
+                    park.lat, park.lon, 2024, 2054
+                )["heat_wind_timeseries_data"]
+                time.sleep(3)
+                wildfire = client.get_wildfire_timeseries(
+                    park.lat, park.lon, 2024, 2054
+                )["wildfire_risk_timeseries_data"]
+                time.sleep(3)
+                _save_api_cache(park.name, {"timeseries": timeseries, "wildfire": wildfire})
+            except Exception as e:
+                print(f"  SKIP — API error: {e}")
+                skipped.append(park.name)
+                continue
 
         n_years = len(timeseries)
         heat_tail_series = wildfire_to_heat_tail(wildfire, n_years)
