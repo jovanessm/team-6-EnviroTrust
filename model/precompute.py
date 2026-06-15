@@ -101,16 +101,29 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
     from EnviroTrustAPI.client import EnviroTrustClient
     client = EnviroTrustClient()
 
+    # Resume: load existing output and keep already-computed parks
+    existing: dict[str, dict] = {}
+    if output_path.exists():
+        with open(output_path) as f:
+            prev = json.load(f)
+        existing = {p["id"]: p for p in prev.get("parks", [])}
+        if existing:
+            print(f"Resuming — {len(existing)} parks already in {output_path.name}")
+
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "n_draws": n_draws,
-        "parks": [],
+        "parks": list(existing.values()),
     }
 
     skipped = []
 
     for i, park in enumerate(ALL_PARKS, 1):
         print(f"\n[{i}/{len(ALL_PARKS)}] {park.name}")
+
+        if park.name in existing:
+            print(f"  SKIP — already computed")
+            continue
 
         baseline = load_baseline(park.name)
         if baseline is None:
