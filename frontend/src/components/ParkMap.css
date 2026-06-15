@@ -1,0 +1,55 @@
+.park-map-wrapper {
+  margin-bottom: 3rem;
+}
+
+.park-map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.park-map-header h2 {
+  font-size: 1.8rem;
+  color: #1e3c72;
+  margin: 0;
+}
+
+.park-map-legend {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.25);
+}
+
+.legend-dot.solar {
+  background: #fbbf24;
+  border-color: #f59e0b;
+}
+
+.legend-dot.wind {
+  background: #60a5fa;
+  border-color: #3b82f6;
+}
+
+.park-map {
+  height: 420px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}

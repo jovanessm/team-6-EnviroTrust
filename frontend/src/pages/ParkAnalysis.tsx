@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { parkAPI, predictionAPI } from '../utils/api';
 import type { Park } from '../types';
+import { ParkMap } from '../components/ParkMap';
 import './ParkAnalysis.css';
 
 export function ParkAnalysis() {
@@ -93,6 +94,8 @@ export function ParkAnalysis() {
 
         {error && <div className="error-message">{error}</div>}
       </section>
+
+      <ParkMap />
 
       {parks.length > 0 && (
         <section className="parks-section">
