@@ -21,6 +21,12 @@ export function Header() {
             <Link to="/analyze" className={pathname === '/analyze' ? 'nav-link active' : 'nav-link'}>
               Analyze
             </Link>
+            <Link to="/compare" className={pathname === '/compare' ? 'nav-link active' : 'nav-link'}>
+              Compare
+            </Link>
+            <Link to="/portfolio" className={pathname === '/portfolio' ? 'nav-link active' : 'nav-link'}>
+              Portfolio
+            </Link>
           </nav>
           <button
             className={`ai-btn${chatOpen ? ' active' : ''}`}

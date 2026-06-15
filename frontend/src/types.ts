@@ -1,13 +1,12 @@
 export interface Park {
   id: string;
   name: string;
-  type: 'wind' | 'solar';
+  type: 'solar';
   location: {
     lat: number;
     lng: number;
   };
   capacity: number;
-  turbines?: number;
   operatingYear: number;
 }
 

@@ -11,10 +11,11 @@ export function ParkAnalysis() {
     <div className="park-analysis">
 
       <div className="analysis-page-header">
-        <h1>Select a Park</h1>
+        <h1>Select a park to analyse</h1>
         <p>
-          Click any marker to see its 30-year revenue forecast under different climate scenarios.
-          20 real operating German parks — solar and wind.
+          Click any pin to see <strong>two forecasts side by side</strong>: what the industry
+          assumes based on historical weather, and what our model predicts as temperatures rise.
+          Use the warming slider to explore how much the gap grows under different futures.
         </p>
       </div>
 
@@ -43,8 +44,8 @@ export function ParkAnalysis() {
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                 </svg>
               </div>
-              <h3>Select a park</h3>
-              <p>Click any pin on the map to see its climate-adjusted revenue forecast, heat risk score, and 30-year outlook.</p>
+              <h3>Click a pin to get started</h3>
+              <p>You'll see the standard industry forecast alongside our climate-adjusted prediction, a heat risk score, and the revenue gap — all in plain numbers.</p>
             </div>
           )}
         </div>

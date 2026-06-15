@@ -21,26 +21,17 @@ interface Chat {
 const PRICE_EUR_PER_MWH = 74;
 
 const PARK_DATA = [
-  { key: 'eggebek',       name: 'Eggebek Solar Park',                 type: 'solar', state: 'Schleswig-Holstein',      capacity: 65,  gwh: 58.2,  d245: -1.8, d585: -3.1, risk: 5.4 },
-  { key: 'weesow',        name: 'Solarpark Weesow-Willmersdorf',      type: 'solar', state: 'Brandenburg',              capacity: 187, gwh: 175.3, d245: -2.1, d585: -3.6, risk: 7.2 },
-  { key: 'gottesgabe',    name: 'Solarpark Gottesgabe Neuhardenberg', type: 'solar', state: 'Brandenburg',              capacity: 84,  gwh: 78.8,  d245: -2.0, d585: -3.4, risk: 7.0 },
-  { key: 'briest',        name: 'Brandenburg Briest Solarpark',       type: 'solar', state: 'Brandenburg',              capacity: 91,  gwh: 85.4,  d245: -2.2, d585: -3.7, risk: 7.1 },
-  { key: 'finsterwalde',  name: 'Finsterwalde Solar Park',            type: 'solar', state: 'Brandenburg',              capacity: 80,  gwh: 76.0,  d245: -2.3, d585: -3.8, risk: 7.4 },
-  { key: 'krughuette',    name: 'Krughuette Solar Park',              type: 'solar', state: 'Saxony-Anhalt',            capacity: 52,  gwh: 49.4,  d245: -2.0, d585: -3.3, risk: 6.8 },
-  { key: 'meuro',         name: 'Solarpark Meuro',                    type: 'solar', state: 'Brandenburg / Saxony',     capacity: 166, gwh: 157.5, d245: -2.2, d585: -3.6, risk: 7.3 },
-  { key: 'ernsthof',      name: 'Ernsthof Solar Park',                type: 'solar', state: 'Baden-Württemberg',        capacity: 70,  gwh: 70.0,  d245: -1.9, d585: -3.2, risk: 6.5 },
-  { key: 'lauingen',      name: 'Lauingen Energy Park',               type: 'solar', state: 'Bavaria',                 capacity: 25,  gwh: 25.5,  d245: -1.8, d585: -3.0, risk: 6.3 },
-  { key: 'strasskirchen', name: 'Strasskirchen Solar Park',           type: 'solar', state: 'Bavaria',                 capacity: 54,  gwh: 55.1,  d245: -1.7, d585: -2.9, risk: 6.2 },
-  { key: 'pocking',       name: 'Solarpark Pocking',                  type: 'solar', state: 'Bavaria',                 capacity: 50,  gwh: 51.0,  d245: -1.8, d585: -3.0, risk: 6.4 },
-  { key: 'reussenkoge',   name: 'Buergerwindpark Reussenkoge',        type: 'wind',  state: 'Schleswig-Holstein',       capacity: 30,  gwh: 118.5, d245: null, d585: null, risk: 3.5 },
-  { key: 'holtriem',      name: 'Windpark Holtriem',                  type: 'wind',  state: 'Lower Saxony',            capacity: 70,  gwh: 196.0, d245: null, d585: null, risk: 3.2 },
-  { key: 'kessin',        name: 'Windpark Kessin',                    type: 'wind',  state: 'Mecklenburg-Vorpommern',  capacity: 30,  gwh: 90.0,  d245: null, d585: null, risk: 3.8 },
-  { key: 'druiberg',      name: 'Windpark Druiberg',                  type: 'wind',  state: 'Saxony-Anhalt',           capacity: 22,  gwh: 55.0,  d245: null, d585: null, risk: 4.1 },
-  { key: 'hesselbach',    name: 'Hesselbach Wind Farm',               type: 'wind',  state: 'North Rhine-Westphalia',  capacity: 18,  gwh: 38.0,  d245: null, d585: null, risk: 3.9 },
-  { key: 'harz',          name: 'Windpark Harz',                      type: 'wind',  state: 'Lower Saxony',            capacity: 35,  gwh: 92.0,  d245: null, d585: null, risk: 4.0 },
-  { key: 'odervorland',   name: 'Windpark Odervorland',               type: 'wind',  state: 'Brandenburg',             capacity: 48,  gwh: 130.0, d245: null, d585: null, risk: 4.3 },
-  { key: 'veenhusen',     name: 'Windpark Veenhusen',                 type: 'wind',  state: 'Lower Saxony',            capacity: 22,  gwh: 70.0,  d245: null, d585: null, risk: 3.4 },
-  { key: 'hohegeest',     name: 'Windpark Hohe Geest',                type: 'wind',  state: 'Schleswig-Holstein',      capacity: 28,  gwh: 88.0,  d245: null, d585: null, risk: 3.6 },
+  { key: 'eggebek',       name: 'Eggebek Solar Park',                 state: 'Schleswig-Holstein',  capacity: 65,  gwh: 58.2,  d245: -1.8, d585: -3.1, risk: 5.4 },
+  { key: 'weesow',        name: 'Solarpark Weesow-Willmersdorf',      state: 'Brandenburg',          capacity: 187, gwh: 175.3, d245: -2.1, d585: -3.6, risk: 7.2 },
+  { key: 'gottesgabe',    name: 'Solarpark Gottesgabe Neuhardenberg', state: 'Brandenburg',          capacity: 84,  gwh: 78.8,  d245: -2.0, d585: -3.4, risk: 7.0 },
+  { key: 'briest',        name: 'Brandenburg Briest Solarpark',       state: 'Brandenburg',          capacity: 91,  gwh: 85.4,  d245: -2.2, d585: -3.7, risk: 7.1 },
+  { key: 'finsterwalde',  name: 'Finsterwalde Solar Park',            state: 'Brandenburg',          capacity: 80,  gwh: 76.0,  d245: -2.3, d585: -3.8, risk: 7.4 },
+  { key: 'krughuette',    name: 'Krughuette Solar Park',              state: 'Saxony-Anhalt',        capacity: 52,  gwh: 49.4,  d245: -2.0, d585: -3.3, risk: 6.8 },
+  { key: 'meuro',         name: 'Solarpark Meuro',                    state: 'Brandenburg / Saxony', capacity: 166, gwh: 157.5, d245: -2.2, d585: -3.6, risk: 7.3 },
+  { key: 'ernsthof',      name: 'Ernsthof Solar Park',                state: 'Baden-Württemberg',    capacity: 70,  gwh: 70.0,  d245: -1.9, d585: -3.2, risk: 6.5 },
+  { key: 'lauingen',      name: 'Lauingen Energy Park',               state: 'Bavaria',              capacity: 25,  gwh: 25.5,  d245: -1.8, d585: -3.0, risk: 6.3 },
+  { key: 'strasskirchen', name: 'Strasskirchen Solar Park',           state: 'Bavaria',              capacity: 54,  gwh: 55.1,  d245: -1.7, d585: -2.9, risk: 6.2 },
+  { key: 'pocking',       name: 'Solarpark Pocking',                  state: 'Bavaria',              capacity: 50,  gwh: 51.0,  d245: -1.8, d585: -3.0, risk: 6.4 },
 ];
 
 const SUGGESTIONS = [
@@ -68,38 +59,28 @@ function buildResponse(userText: string): string {
 
   if (!park) {
     if (/list|all|which|parks/.test(lower)) {
-      const solar = PARK_DATA.filter(p => p.type === 'solar').map(p => p.name).join(', ');
-      const wind  = PARK_DATA.filter(p => p.type === 'wind').map(p => p.name).join(', ');
-      return `I have data for 20 German renewable parks.\n\n**Solar parks (climate-adjusted):**\n${solar}\n\n**Wind parks (baseline only):**\n${wind}`;
+      const names = PARK_DATA.map(p => p.name).join(', ');
+      return `I have data for 11 German solar parks:\n\n${names}`;
     }
-    return `I can answer questions about any of the 20 German parks in this tool.\n\nTry asking:\n• "What's the forecast for Eggebek Solar Park?"\n• "Revenue gap for Solarpark Meuro"\n• "Heat risk for Brandenburg Briest"\n\nOr ask "list all parks" to see the full roster.`;
+    return `I can answer questions about any of the 11 German solar parks in this tool.\n\nTry asking:\n• "What's the forecast for Eggebek Solar Park?"\n• "Revenue gap for Solarpark Meuro"\n• "Heat risk for Brandenburg Briest"\n\nOr ask "list all parks" to see the full roster.`;
   }
-
-  const isSolar = park.type === 'solar';
 
   if (isHeatQ) {
-    const level  = park.risk >= 7 ? 'high' : park.risk >= 5 ? 'moderate' : 'low';
-    const detail = isSolar
-      ? `For a solar park, high ambient temperatures directly reduce panel efficiency through thermal derating — and hotter summers accelerate panel degradation via the Arrhenius effect, compounding losses over 30 years.`
-      : `Wind output is less sensitive to temperature than solar, but high-heat summers often correlate with low-wind conditions in central Europe.`;
-    return `**Heat risk — ${park.name}**\n\nScore: ${park.risk}/10 (${level})\nLocation: ${park.state}\n\n${detail}`;
+    const level = park.risk >= 7 ? 'high' : park.risk >= 5 ? 'moderate' : 'low';
+    return `**Heat risk — ${park.name}**\n\nScore: ${park.risk}/10 (${level})\nLocation: ${park.state}\n\nHigh ambient temperatures directly reduce panel efficiency through thermal derating — and hotter summers accelerate panel degradation via the Arrhenius effect, compounding losses over 30 years.`;
   }
 
-  if (isRevenueQ && isSolar) {
+  if (isRevenueQ) {
     const lifetimeBase = park.gwh * 30 * 0.86;
     const revBase = (lifetimeBase * PRICE_EUR_PER_MWH) / 1000;
-    const rev245  = revBase * (1 + park.d245! / 100);
-    const rev585  = revBase * (1 + park.d585! / 100);
+    const rev245  = revBase * (1 + park.d245 / 100);
+    const rev585  = revBase * (1 + park.d585 / 100);
     const gap245  = rev245 - revBase;
     const gap585  = rev585 - revBase;
-    return `**Revenue outlook — ${park.name}**\n\nIndustry standard (30 yr): €${revBase.toFixed(0)}M\n\nModerate Warming (SSP2-4.5): €${rev245.toFixed(0)}M · gap €${Math.abs(gap245).toFixed(0)}M (${park.d245!.toFixed(1)}%)\n\nHigh Emissions (SSP5-8.5): €${rev585.toFixed(0)}M · gap €${Math.abs(gap585).toFixed(0)}M (${park.d585!.toFixed(1)}%)\n\nPrice assumption: €${PRICE_EUR_PER_MWH}/MWh — illustrative only.`;
+    return `**Revenue outlook — ${park.name}**\n\nIndustry standard (30 yr): €${revBase.toFixed(0)}M\n\nModerate Warming (SSP2-4.5): €${rev245.toFixed(0)}M · gap €${Math.abs(gap245).toFixed(0)}M (${park.d245.toFixed(1)}%)\n\nHigh Emissions (SSP5-8.5): €${rev585.toFixed(0)}M · gap €${Math.abs(gap585).toFixed(0)}M (${park.d585.toFixed(1)}%)\n\nPrice assumption: €${PRICE_EUR_PER_MWH}/MWh — illustrative only.`;
   }
 
-  if (!isSolar) {
-    return `**${park.name}** · Wind · ${park.state}\n\nCapacity: ${park.capacity} MW\nBaseline output: ~${park.gwh.toFixed(0)} GWh/year\n\nOur climate-adjustment model focuses on solar thermal derating — wind output projections under CMIP6 carry much higher uncertainty, so we report the baseline only for wind parks.\n\nHeat risk score: ${park.risk}/10`;
-  }
-
-  return `**${park.name}** · Solar · ${park.state}\n\nCapacity: ${park.capacity} MWp\nBaseline output: ~${park.gwh.toFixed(1)} GWh/year\n\nClimate-adjusted forecast (30-year lifetime):\n• Moderate Warming (SSP2-4.5): ${park.d245!.toFixed(1)}% vs. industry standard\n• High Emissions (SSP5-8.5): ${park.d585!.toFixed(1)}% vs. industry standard\n\nThe gap is driven mainly by temperature-accelerated panel degradation (Arrhenius effect) compounding over 30 years.\n\nHeat risk: ${park.risk}/10 · Ask me about the revenue impact for the full breakdown.`;
+  return `**${park.name}** · Solar · ${park.state}\n\nCapacity: ${park.capacity} MWp\nBaseline output: ~${park.gwh.toFixed(1)} GWh/year\n\nClimate-adjusted forecast (30-year lifetime):\n• Moderate Warming (SSP2-4.5): ${park.d245.toFixed(1)}% vs. industry standard\n• High Emissions (SSP5-8.5): ${park.d585.toFixed(1)}% vs. industry standard\n\nThe gap is driven mainly by temperature-accelerated panel degradation (Arrhenius effect) compounding over 30 years.\n\nHeat risk: ${park.risk}/10 · Ask me about the revenue impact for the full breakdown.`;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -211,7 +192,7 @@ function ChatList({ chats, onOpen, onNew, onClose }: ChatListProps) {
           <div className="chat-list-empty">
             <div className="welcome-icon"><BotIcon size={28} /></div>
             <p className="welcome-title">No conversations yet</p>
-            <p className="welcome-body">Ask me about any of the 20 German parks — forecasts, heat risk, revenue gaps.</p>
+            <p className="welcome-body">Ask me about any of the 11 German solar parks — forecasts, heat risk, revenue gaps.</p>
             <button className="btn-new-chat" onClick={onNew}>Start a conversation</button>
           </div>
         ) : (
@@ -300,7 +281,7 @@ function ChatDetail({ chat, onBack, onClose, onSend, typing }: ChatDetailProps) 
           <div className="chatbot-welcome">
             <div className="welcome-icon"><BotIcon size={28} /></div>
             <p className="welcome-title">Ask me about any park</p>
-            <p className="welcome-body">Forecasts, heat risk scores, revenue gaps — for all 20 parks.</p>
+            <p className="welcome-body">Forecasts, heat risk scores, revenue gaps — for all 11 solar parks.</p>
             <div className="suggestions">
               {SUGGESTIONS.map(s => (
                 <button key={s} className="suggestion-chip" onClick={() => submit(s)}>{s}</button>

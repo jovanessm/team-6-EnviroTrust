@@ -39,10 +39,6 @@
   color: #92400e;
 }
 
-.forecast-badge.wind {
-  background: var(--blue-100);
-  color: #1e40af;
-}
 
 .forecast-park-name {
   font-size: 1.125rem;
@@ -173,6 +169,138 @@
   height: 0;
   border-top: 2px dashed var(--slate-900);
   flex-shrink: 0;
+}
+
+/* ── Warming slider ───────────────────────────────────────────────────── */
+.warming-section {
+  background: var(--slate-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.warming-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.875rem;
+}
+
+.warming-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.warming-value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s;
+}
+
+.warming-track-wrap {
+  position: relative;
+  padding-bottom: 2.25rem; /* room for marks */
+}
+
+.warming-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 99px;
+  background: linear-gradient(
+    to right,
+    var(--w-color, #3b82f6) 0%,
+    var(--w-color, #3b82f6) var(--w-pct, 43%),
+    var(--border) var(--w-pct, 43%),
+    var(--border) 100%
+  );
+  outline: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.warming-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2.5px solid var(--w-color, #3b82f6);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.warming-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.warming-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2.5px solid var(--w-color, #3b82f6);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  cursor: pointer;
+}
+
+/* SSP reference marks */
+.warming-marks {
+  position: absolute;
+  top: 14px; /* below the slider thumb */
+  left: 0;
+  right: 0;
+}
+
+.warming-mark {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.warming-mark-tick {
+  width: 1px;
+  height: 6px;
+  background: var(--slate-400);
+}
+
+.warming-mark-label {
+  font-size: 0.675rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.warming-mark-temp {
+  font-size: 0.675rem;
+  color: var(--slate-400);
+  font-variant-numeric: tabular-nums;
+}
+
+.warming-mark.active .warming-mark-label,
+.warming-mark.active .warming-mark-temp {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.warming-explainer {
+  margin-top: 2.5rem;
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 /* ── Chart ────────────────────────────────────────────────────────────── */

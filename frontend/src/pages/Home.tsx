@@ -59,7 +59,7 @@ export function Home() {
         </p>
         <div className="hero-actions">
           <Link to="/analyze" className="btn btn-primary">Analyze a Park</Link>
-          <span className="hero-note">20 real German parks · no signup required</span>
+          <span className="hero-note">11 real German solar parks · no signup required</span>
         </div>
       </section>
 
@@ -99,7 +99,7 @@ export function Home() {
       <section className="cta-section">
         <div className="cta-inner">
           <h2>Start with a real park</h2>
-          <p>Select from 20 operating German solar and wind parks. Results in seconds.</p>
+          <p>Select from 11 real German solar parks. Results in seconds.</p>
           <Link to="/analyze" className="btn btn-primary">Open the map</Link>
         </div>
       </section>

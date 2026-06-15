@@ -52,11 +52,6 @@
   border-color: #f59e0b;
 }
 
-.legend-dot.wind {
-  background: #60a5fa;
-  border-color: #3b82f6;
-}
-
 .legend-hint {
   font-size: 0.75rem;
   color: var(--text-muted);
