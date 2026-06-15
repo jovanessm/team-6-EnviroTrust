@@ -1,10 +1,10 @@
 """Default parameters and configuration for the solar model."""
 
 # Physics defaults
-GAMMA_DEFAULT = -0.004  # power temperature coefficient, 1/°C
+GAMMA_DEFAULT = -0.0045  # power temperature coefficient, 1/°C — Trina Solar TSM-PC05 datasheet
 NOCT_DEFAULT = 45.0  # nominal operating cell temperature, °C
 PR_NONTHERMAL_DEFAULT = 0.87  # performance ratio (non-thermal losses only)
-DEGRADATION_RATE_DEFAULT = 0.005  # fraction per year
+DEGRADATION_RATE_DEFAULT = 0.007  # fraction per year — Trina Solar TSM-PC05 warranty (max 0.7%/yr linear)
 
 # MC parameters
 N_DRAWS_DEFAULT = 3000
