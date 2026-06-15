@@ -109,6 +109,236 @@ function fmtGap(gap: number, pct: number) {
   return `${sign}€${Math.abs(gap).toFixed(1)}M (${sign}${Math.abs(pct).toFixed(1)}%)`;
 }
 
+// ── Report generation (no external deps — opens a styled HTML blob) ───────────
+
+function buildSvgChart(data: Row[], colorLine: string, colorBand: string): string {
+  const W = 660, H = 170;
+  const PL = 42, PR = 8, PT = 10, PB = 26;
+  const cW = W - PL - PR, cH = H - PT - PB;
+
+  const allY = data.flatMap(d => [d.p90, d.p10, d.baseline]);
+  const yMin = Math.min(...allY) - 0.5;
+  const yMax = Math.max(...allY) + 0.5;
+
+  const sx = (yr: number) => PL + ((yr - 1) / 29) * cW;
+  const sy = (v: number)  => PT + (1 - (v - yMin) / (yMax - yMin)) * cH;
+  const pts = (fn: (d: Row) => number) =>
+    data.map(d => `${sx(d.year).toFixed(1)},${sy(fn(d)).toFixed(1)}`).join(' ');
+
+  const bandFwd  = data.map(d =>
+    `${sx(d.year).toFixed(1)},${sy(d.p10).toFixed(1)}`).join(' ');
+  const bandBack = data.slice().reverse().map(d =>
+    `${sx(d.year).toFixed(1)},${sy(d.p90).toFixed(1)}`).join(' ');
+
+  const yTicks = [0, 1, 2, 3].map(i => yMin + (yMax - yMin) * (i / 3));
+  const xTicks = [5, 10, 15, 20, 25, 30];
+
+  const gridLines   = yTicks.map(v =>
+    `<line x1="${PL}" y1="${sy(v).toFixed(1)}" x2="${W - PR}" y2="${sy(v).toFixed(1)}" stroke="#e5e7eb" stroke-width="0.5"/>`
+  ).join('');
+  const yLabels     = yTicks.map(v =>
+    `<text x="${PL - 4}" y="${(sy(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="9" font-family="sans-serif" fill="#9ca3af">${v.toFixed(0)}</text>`
+  ).join('');
+  const xLabels     = xTicks.map(yr =>
+    `<text x="${sx(yr).toFixed(1)}" y="${H}" text-anchor="middle" font-size="9" font-family="sans-serif" fill="#9ca3af">${yr}</text>`
+  ).join('');
+
+  return [
+    `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">`,
+    gridLines,
+    `<polygon points="${bandFwd} ${bandBack}" fill="${colorBand}"/>`,
+    `<polyline points="${pts(d => d.baseline)}" fill="none" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3"/>`,
+    `<polyline points="${pts(d => d.p50)}" fill="none" stroke="${colorLine}" stroke-width="2"/>`,
+    yLabels, xLabels,
+    `<text x="9" y="${(PT + cH / 2).toFixed(0)}" text-anchor="middle" font-size="9" font-family="sans-serif" fill="#9ca3af" transform="rotate(-90,9,${(PT + cH / 2).toFixed(0)})">GWh/yr</text>`,
+    `</svg>`,
+  ].join('');
+}
+
+function generateReportHtml(
+  park: ParkEntry,
+  data: Row[],
+  warmingLevel: number,
+  colors: { line: string; band: string },
+  lifetimeBaseline: number,
+  lifetimeP50: number,
+  dp50: number,
+  revBaseline: number,
+  revP50: number,
+  revP90: number,
+  gapM_p50: number,
+  gapM_p90: number,
+  gapPct_p50: number,
+  gapPct_p90: number,
+): string {
+  const date      = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const refId     = park.name.replace(/\s+/g, '-').toUpperCase().slice(0, 8) + '-' + Date.now().toString(36).toUpperCase().slice(-5);
+  const fmtG      = (n: number) => n >= 1000 ? (n / 1000).toFixed(2) + ' TWh' : n.toFixed(0) + ' GWh';
+  const fmtR      = (n: number) => '€' + Math.abs(n).toFixed(1) + 'M';
+  const scenario  = warmingLevel <= 1.6 ? 'SSP1-2.6 — Low emissions' : warmingLevel <= 2.6 ? 'SSP2-4.5 — Middle road' : 'SSP5-8.5 — High emissions';
+  const riskLvl   = park.risk >= 7 ? 'High' : park.risk >= 5 ? 'Moderate' : 'Low';
+  const riskColor = park.risk >= 7 ? '#dc2626' : park.risk >= 5 ? '#d97706' : '#059669';
+  const chartSvg  = buildSvgChart(data, colors.line, colors.band);
+
+  const annual5Rows = data.slice(0, 5).map(d => {
+    const yr   = 2024 + d.year - 1;
+    const base = (d.baseline * PRICE_EUR_PER_MWH * 1000) / 1e6;
+    const p50  = (d.p50      * PRICE_EUR_PER_MWH * 1000) / 1e6;
+    const gap  = p50 - base;
+    return '<tr><td>' + yr + '</td><td>' + fmtR(base) + '</td><td>' + fmtR(p50) +
+           '</td><td class="neg">−' + fmtR(Math.abs(gap)) +
+           ' (' + Math.abs((gap / base) * 100).toFixed(1) + '%)</td></tr>';
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Climate Risk Report — ${park.name}</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:#fff;color:#111;font-size:12px;line-height:1.5}
+.print-bar{background:#f9fafb;border-bottom:1px solid #e5e7eb;padding:10px 44px;display:flex;align-items:center;justify-content:space-between}
+.print-bar span{font-size:11px;color:#888}
+.print-btn{background:#111;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.print-btn:hover{background:#374151}
+.page{max-width:760px;margin:0 auto;padding:36px 44px 28px}
+.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:2px solid #111;margin-bottom:22px}
+.rpt-brand{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.rpt-brand-sub{font-size:10px;color:#888;margin-top:2px}
+.rpt-doc-meta{text-align:right;font-size:10px;color:#888;line-height:1.7}
+.rpt-doc-type{font-size:11px;font-weight:700;color:#111}
+.rpt-park{margin-bottom:14px}
+.rpt-park-name{font-size:20px;font-weight:700;letter-spacing:-0.03em;margin-bottom:3px}
+.rpt-park-meta{font-size:11px;color:#666}
+.rpt-pill{display:inline-block;margin-top:8px;font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:3px 10px;border-radius:99px;border:1.5px solid ${colors.line};color:${colors.line}}
+.rpt-heat{display:flex;align-items:center;gap:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:18px}
+.rpt-heat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px}
+.rpt-heat-val{font-size:22px;font-weight:800;color:${riskColor};line-height:1}
+.rpt-heat-lvl{font-size:11px;font-weight:700;color:${riskColor}}
+.rpt-heat-desc{font-size:11px;color:#666;flex:1}
+.rpt-headline{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:20px}
+.rpt-hl{padding:12px 16px}
+.rpt-hl+.rpt-hl{border-left:1px solid #e5e7eb}
+.rpt-hl-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:4px}
+.rpt-hl-val{font-size:18px;font-weight:700;letter-spacing:-0.03em}
+.rpt-hl-delta{font-size:11px;font-weight:600;color:#dc2626;margin-top:2px}
+.rpt-hl-sub{font-size:10px;color:#888;margin-top:2px}
+.sec-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px}
+.rpt-chart-wrap{border:1px solid #e5e7eb;border-radius:8px;padding:12px 8px 6px;margin-bottom:6px}
+.rpt-legend{display:flex;gap:20px;font-size:9px;color:#666;padding:6px 8px 14px 48px}
+.sw{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:4px;border-radius:1px}
+.sw-dash{display:inline-block;width:16px;border-top:1.5px dashed #374151;vertical-align:middle;margin-right:4px}
+.sw-band{display:inline-block;width:16px;height:8px;vertical-align:middle;margin-right:4px;border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:18px}
+thead tr{background:#f9fafb;border-bottom:1px solid #e5e7eb}
+th{padding:7px 12px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#888}
+th:first-child{text-align:left}
+td{padding:7px 12px;text-align:right;border-bottom:1px solid #f3f4f6}
+td:first-child{text-align:left;color:#555}
+.neg{color:#dc2626;font-weight:600}
+.rpt-footer{border-top:1px solid #e5e7eb;padding-top:10px;font-size:9px;color:#aaa;display:flex;justify-content:space-between;gap:20px}
+@media print{
+  .print-bar{display:none!important}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{padding:0;max-width:none}
+  @page{margin:16mm 20mm}
+}
+</style>
+</head>
+<body>
+<div class="print-bar">
+  <span>NviroTrust Climate Risk Report — ${park.name}</span>
+  <button class="print-btn" onclick="window.print()">Save as PDF</button>
+</div>
+<div class="page">
+  <div class="rpt-hdr">
+    <div>
+      <div class="rpt-brand">NviroTrust</div>
+      <div class="rpt-brand-sub">Power, Seen From Orbit &nbsp;&middot;&nbsp; EnviroTrust Challenge 2026</div>
+    </div>
+    <div class="rpt-doc-meta">
+      <div class="rpt-doc-type">Climate Risk Assessment</div>
+      <div>${date}</div>
+      <div>Ref: NVT-${refId}</div>
+    </div>
+  </div>
+
+  <div class="rpt-park">
+    <div class="rpt-park-name">${park.name}</div>
+    <div class="rpt-park-meta">${park.state} &nbsp;&middot;&nbsp; ${park.lat.toFixed(3)}&deg;N, ${park.lon.toFixed(3)}&deg;E &nbsp;&middot;&nbsp; ${park.capacity} MWp &nbsp;&middot;&nbsp; Solar PV</div>
+    <div class="rpt-pill">+${warmingLevel.toFixed(1)}&deg;C by 2055 &nbsp;&middot;&nbsp; ${scenario}</div>
+  </div>
+
+  <div class="rpt-heat">
+    <div>
+      <div class="rpt-heat-lbl">Climate Heat Risk</div>
+      <div class="rpt-heat-val">${park.risk.toFixed(1)}<span style="font-size:11px;font-weight:400;color:#888">/10</span></div>
+    </div>
+    <div class="rpt-heat-lvl">${riskLvl}</div>
+    <div class="rpt-heat-desc">Exposure to extreme heat days through 2055. Higher ambient temperatures reduce panel efficiency via thermal derating and accelerate cell degradation via the Arrhenius effect, compounding losses over the asset lifetime.</div>
+  </div>
+
+  <div class="rpt-headline">
+    <div class="rpt-hl">
+      <div class="rpt-hl-lbl">Industry Standard</div>
+      <div class="rpt-hl-val">${fmtG(lifetimeBaseline)}</div>
+      <div class="rpt-hl-sub">30-year total output</div>
+    </div>
+    <div class="rpt-hl">
+      <div class="rpt-hl-lbl">Climate-Adjusted &middot; +${warmingLevel.toFixed(1)}&deg;C</div>
+      <div class="rpt-hl-val" style="color:${colors.line}">${fmtG(lifetimeP50)}</div>
+      <div class="rpt-hl-delta">${dp50.toFixed(1)}% vs industry</div>
+    </div>
+    <div class="rpt-hl">
+      <div class="rpt-hl-lbl">Revenue at Risk (P50)</div>
+      <div class="rpt-hl-val" style="color:#dc2626">${fmtR(gapM_p50)}</div>
+      <div class="rpt-hl-sub">shortfall vs assumption</div>
+    </div>
+  </div>
+
+  <div class="sec-lbl">30-year output forecast &mdash; GWh per year</div>
+  <div class="rpt-chart-wrap">${chartSvg}</div>
+  <div class="rpt-legend">
+    <span><span class="sw" style="background:${colors.line};height:2px"></span>Climate-adjusted (P50)</span>
+    <span><span class="sw-dash"></span>Industry assumption</span>
+    <span><span class="sw-band" style="background:${colors.band}"></span>Likely range (P10&ndash;P90)</span>
+  </div>
+
+  <div class="sec-lbl">Lifetime Revenue Summary (30 years &middot; &euro;${PRICE_EUR_PER_MWH}/MWh)</div>
+  <table>
+    <thead><tr><th></th><th>Industry Assumption</th><th>Expected (P50)</th><th>Conservative (P90)</th></tr></thead>
+    <tbody>
+      <tr><td>30-yr revenue</td><td>${fmtR(revBaseline)}</td><td>${fmtR(revP50)}</td><td>${fmtR(revP90)}</td></tr>
+      <tr><td>Shortfall vs assumption</td><td>&mdash;</td>
+        <td class="neg">&minus;${fmtR(Math.abs(gapM_p50))} (${Math.abs(gapPct_p50).toFixed(1)}%)</td>
+        <td class="neg">&minus;${fmtR(Math.abs(gapM_p90))} (${Math.abs(gapPct_p90).toFixed(1)}%)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sec-lbl">Annual Revenue &mdash; First 5 Years (&euro;M)</div>
+  <table>
+    <thead><tr><th>Year</th><th>Industry Standard</th><th>Expected (P50)</th><th>Shortfall</th></tr></thead>
+    <tbody>${annual5Rows}</tbody>
+  </table>
+
+  <div class="rpt-footer">
+    <div>
+      <strong>NviroTrust</strong> &middot; Climate Risk Assessment<br>
+      Scenario: ${scenario} &middot; +${warmingLevel.toFixed(1)}&deg;C total warming by 2055<br>
+      Price assumption: &euro;${PRICE_EUR_PER_MWH}/MWh &middot; Illustrative only &mdash; not a financial forecast
+    </div>
+    <div style="text-align:right">
+      Generated ${date}<br>
+      Physics: NOCT thermal derating + Arrhenius degradation<br>
+      Climate source: CDS/CMIP6 delta method &middot; Park specs: MaStR registry
+    </div>
+  </div>
+</div>
+</body>
+</html>`;
+}
 
 // ── Warming slider ────────────────────────────────────────────────────────────
 
@@ -239,10 +469,23 @@ export function ParkForecast({ park, onClose }: Props) {
     p10:      toRevM(d.p10),
   }));
 
-  const yMin    = Math.floor(Math.min(...data.map(d => d.p90)) - 1);
-  const yMax    = Math.ceil(data[0].baseline + 1);
+  const yMin     = Math.floor(Math.min(...data.map(d => d.p90)) - 1);
+  const yMax     = Math.ceil(data[0].baseline + 1);
   const score    = park.risk.toFixed(1);
   const scoreNum = park.risk;
+
+  function downloadReport() {
+    const html = generateReportHtml(
+      park, data, warmingLevel, colors,
+      lifetimeBaseline, lifetimeP50, dp50,
+      revBaseline, revP50, revP90,
+      gapM_p50, gapM_p90, gapPct_p50, gapPct_p90,
+    );
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
 
   return (
     <div className="park-forecast">
@@ -254,7 +497,15 @@ export function ParkForecast({ park, onClose }: Props) {
           <h2 className="forecast-park-name">{park.name}</h2>
           <p className="forecast-park-meta">{park.state} &nbsp;·&nbsp; {park.lat.toFixed(3)}, {park.lon.toFixed(3)}</p>
         </div>
-        <button className="forecast-close" onClick={onClose} aria-label="Close">✕</button>
+        <div className="forecast-actions">
+          <button className="report-btn" onClick={downloadReport} title="Download PDF report">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Report
+          </button>
+          <button className="forecast-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
       </div>
 
       {/* ── Headline cards ────────────────────────────────── */}

@@ -52,6 +52,32 @@
   color: var(--text-muted);
 }
 
+.forecast-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.report-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--slate-900);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.report-btn:hover { background: var(--slate-700, #374151); }
+
 .forecast-close {
   background: none;
   border: 1px solid var(--border);
