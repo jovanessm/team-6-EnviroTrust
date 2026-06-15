@@ -1,6 +1,6 @@
-# CLAUDE.md — `model/` working guide
+# Model Implementation Guide
 
-Personal/local context for building the prediction model. **Supplements the root `CLAUDE.md`** —
+Working context for building the prediction model. **Supplements the root `CLAUDE.md`** —
 project constraints, settled decisions, and the data contract live there; read it first. This
 file is the implementation detail for the `model/` module only.
 
