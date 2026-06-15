@@ -71,7 +71,39 @@
   background: var(--emerald-600);
 }
 
+.ai-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--slate-700);
+  background: transparent;
+  color: var(--slate-400);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.ai-btn:hover {
+  color: white;
+  border-color: var(--emerald-500);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.ai-btn.active {
+  color: var(--emerald-400);
+  border-color: var(--emerald-500);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.ai-btn-label {
+  font-size: 0.8rem;
+}
+
 @media (max-width: 640px) {
   .header-inner { padding: 0 1rem; gap: 1rem; }
   .header-cta { display: none; }
+  .ai-btn-label { display: none; }
 }

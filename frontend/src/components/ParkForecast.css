@@ -288,7 +288,7 @@
 .heat-risk-denom {
   font-size: 0.875rem;
   font-weight: 500;
-  opacity: 0.6;
+  color: var(--text-muted);
 }
 
 .heat-risk-note {
