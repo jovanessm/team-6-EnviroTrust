@@ -1,0 +1,266 @@
+.results {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.results-header {
+  position: relative;
+  margin-bottom: 3rem;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: #4fc3f7;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  transition: color 0.2s;
+}
+
+.back-button:hover {
+  color: #1e3c72;
+}
+
+.results-header h1 {
+  color: #1e3c72;
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.park-summary {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.badge,
+.capacity,
+.location {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #f0f4ff;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #1e3c72;
+  font-weight: 500;
+}
+
+.results-content {
+  display: grid;
+  gap: 2rem;
+}
+
+.baseline-card {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.baseline-card h2 {
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.metric .value {
+  font-size: 2.5rem;
+  font-weight: bold;
+}
+
+.metric .label {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.baseline-card .note {
+  font-size: 0.95rem;
+  opacity: 0.85;
+  margin: 0;
+}
+
+.note .positive {
+  color: #80deea;
+  font-weight: bold;
+}
+
+.note .negative {
+  color: #ff9999;
+  font-weight: bold;
+}
+
+.scenarios-section {
+  margin-top: 2rem;
+}
+
+.scenarios-section h2 {
+  color: #1e3c72;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.description {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.scenarios-comparison {
+  display: grid;
+  gap: 2rem;
+}
+
+.scenario-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.scenario-item h3 {
+  color: #1e3c72;
+  margin-bottom: 1rem;
+}
+
+.output-bar {
+  position: relative;
+  height: 60px;
+  margin-bottom: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.uncertainty-range {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.range-bar {
+  background: rgba(79, 195, 247, 0.2);
+  height: 100%;
+  border-radius: 6px;
+  position: absolute;
+  top: 0;
+  min-width: 1px;
+}
+
+.output-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 24px;
+  background: #1e3c72;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.scenario-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail .label {
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.detail .value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #1e3c72;
+}
+
+.assumptions-section {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-top: 2rem;
+}
+
+.assumptions-section h2 {
+  color: #1e3c72;
+  margin-bottom: 1rem;
+}
+
+.assumptions-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.assumptions-list li {
+  padding: 0.75rem 1rem;
+  background: white;
+  border-left: 3px solid #4fc3f7;
+  border-radius: 4px;
+  color: #333;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.secondary-button {
+  padding: 1rem 2rem;
+  background: white;
+  border: 2px solid #4fc3f7;
+  color: #1e3c72;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.secondary-button:hover {
+  background: #f0f4ff;
+  transform: translateY(-2px);
+}
+
+.results-error {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.results-error h1 {
+  color: #1e3c72;
+  margin-bottom: 1rem;
+}
+
+.results-error button {
+  padding: 0.75rem 1.5rem;
+  background: #4fc3f7;
+  color: #1e3c72;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.results-error button:hover {
+  background: #b3e5fc;
+}
