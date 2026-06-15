@@ -114,8 +114,14 @@ def simulate(
     lifetime_p90 = np.sum(p90_annual)
     delta_pct = (lifetime_p50 - lifetime_baseline) / lifetime_baseline * 100
 
+    rcp26_note = (
+        "synthesized from RCP4.5 x IPCC AR6 CE ratio 0.61 "
+        "(SSP1-2.6 1.1°C / SSP2-4.5 1.8°C by 2041-60, Table 4.5)"
+        if deltas.scenario == "RCP2.6" else None
+    )
     provenance = {
         "scenario": deltas.scenario,
+        "scenario_source": rcp26_note or "EnviroTrust API heat-wind/timeseries",
         "n_draws": n_draws,
         "park_name": park.name,
         "park_lat": park.lat,

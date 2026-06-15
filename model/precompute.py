@@ -29,7 +29,7 @@ load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
 
 from model.parks import ALL_PARKS
 from model.data import ParkSpecs, BaselineWeather
-from model.adapters import build_all_scenarios, wildfire_to_heat_tail
+from model.adapters import build_all_scenarios, wildfire_to_heat_tail, IPCC_AR6_RCP26_SCALE
 from model.montecarlo import simulate
 from model.finance import energy_to_revenue, format_for_ui
 
@@ -158,7 +158,9 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
                 continue
 
         n_years = len(timeseries)
-        heat_tail_series = wildfire_to_heat_tail(wildfire, n_years)
+        heat_tail_rcp45 = wildfire_to_heat_tail(wildfire, n_years)
+        # RCP2.6 has fewer extreme-heat days — scale heat-tail by same IPCC ratio
+        heat_tail_rcp26 = heat_tail_rcp45 * IPCC_AR6_RCP26_SCALE
         scenarios = build_all_scenarios(timeseries, mean_temp)
 
         if dry_run:
@@ -167,7 +169,14 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
 
         park_entry = {**park_to_dict(park), "scenarios": {}}
 
+        heat_tail_by_scenario = {
+            "RCP2.6": heat_tail_rcp26,
+            "RCP4.5": heat_tail_rcp45,
+            "RCP8.5": heat_tail_rcp45,  # wildfire API has no RCP8.5 split; conservative
+        }
+
         for scenario_name, deltas in scenarios.items():
+            heat_tail_series = heat_tail_by_scenario[scenario_name]
             print(f"  simulate() {scenario_name} ({n_draws} draws)...", end=" ", flush=True)
             pred = simulate(park, baseline, deltas, n_draws=n_draws, heat_tail_series=heat_tail_series)
             rev = energy_to_revenue(pred)

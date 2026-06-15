@@ -2,11 +2,22 @@
 Adapters that convert EnviroTrust API responses to model data contracts.
 
 EnviroTrust API → ClimateDeltas + heat-tail series for simulate().
+
+Three scenarios:
+  RCP2.6 — synthesized from RCP4.5 × IPCC AR6 CE ratio (0.61). No free API
+            provides SSP1-2.6 at lat/lon; this ratio is from IPCC AR6 WGI Table
+            4.5 (Central Europe: SSP1-2.6 ~1.1°C vs SSP2-4.5 ~1.8°C by 2041-60).
+  RCP4.5 — EnviroTrust API (daily max temperature rcp45)
+  RCP8.5 — EnviroTrust API (daily max temperature rcp85)
 """
 
 import numpy as np
 import pandas as pd
 from model.data import ClimateDeltas
+
+# IPCC AR6 WGI Central Europe: SSP1-2.6 / SSP2-4.5 warming ratio by 2041-2060
+# (1.1°C / 1.8°C ≈ 0.61). Applied to both ΔT signal and heat-tail.
+IPCC_AR6_RCP26_SCALE = 0.61
 
 
 def compute_baseline_temp(era5_csv_path: str) -> float:
@@ -96,21 +107,52 @@ def wildfire_to_heat_tail(wildfire_data: dict, n_years: int) -> np.ndarray:
     return dT_extra
 
 
+def synthesize_rcp26(rcp45: ClimateDeltas) -> ClimateDeltas:
+    """
+    Derive a RCP2.6 (SSP1-2.6) scenario by scaling the RCP4.5 ΔT signal.
+
+    Source: IPCC AR6 WGI Table 4.5 — Central Europe multi-model mean warming
+    by 2041-2060 vs 1995-2014:
+        SSP1-2.6: +1.1°C  →  SSP2-4.5: +1.8°C  →  ratio = 0.61
+
+    Uncertainty (dT_model_std) is scaled by the same factor. A small floor
+    of 0.2°C is kept because low-emission pathways still carry spread from
+    internal variability.
+
+    Provenance is carried in ClimateDeltas.scenario string and visible in
+    every Prediction.provenance dict downstream.
+
+    Args:
+        rcp45: ClimateDeltas built from EnviroTrust RCP4.5 timeseries
+
+    Returns:
+        ClimateDeltas for RCP2.6
+    """
+    return ClimateDeltas(
+        scenario="RCP2.6",
+        dT_per_year=rcp45.dT_per_year * IPCC_AR6_RCP26_SCALE,
+        dT_model_std=np.maximum(0.2, rcp45.dT_model_std * IPCC_AR6_RCP26_SCALE),
+    )
+
+
 def build_all_scenarios(
     timeseries_data: list[dict],
     baseline_temp_c: float,
 ) -> dict[str, ClimateDeltas]:
     """
-    Build ClimateDeltas for both available scenarios from one API response.
+    Build ClimateDeltas for all three scenarios from one EnviroTrust API response.
+
+    RCP4.5 and RCP8.5 come directly from the API. RCP2.6 is synthesized from
+    RCP4.5 using IPCC AR6 Central Europe scaling (see synthesize_rcp26).
 
     Args:
         timeseries_data: list from heat_wind_timeseries_data
         baseline_temp_c: historical mean temperature in °C
 
     Returns:
-        dict mapping scenario name to ClimateDeltas
+        dict mapping scenario name to ClimateDeltas, ordered low → high warming
     """
-    return {
-        "RCP4.5": heat_wind_to_climate_deltas(timeseries_data, baseline_temp_c, "RCP4.5"),
-        "RCP8.5": heat_wind_to_climate_deltas(timeseries_data, baseline_temp_c, "RCP8.5"),
-    }
+    rcp45 = heat_wind_to_climate_deltas(timeseries_data, baseline_temp_c, "RCP4.5")
+    rcp85 = heat_wind_to_climate_deltas(timeseries_data, baseline_temp_c, "RCP8.5")
+    rcp26 = synthesize_rcp26(rcp45)
+    return {"RCP2.6": rcp26, "RCP4.5": rcp45, "RCP8.5": rcp85}
