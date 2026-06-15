@@ -14,6 +14,7 @@ from model.physics import annual_energy
 from model.typical_year import build_typical_year, sample_year
 from model.degradation import degradation_factor
 from model.climate import apply_delta, heat_tail
+from model.validate import check_specific_yield
 
 
 def simulate(
@@ -51,6 +52,10 @@ def simulate(
     typical_ghi, typical_temp = build_typical_year(baseline.ghi, baseline.temp_amb)
     n_years = len(deltas.dT_per_year)
     years = np.arange(n_years)
+
+    # Sanity-check baseline yield before running 3000-draw MC on bad inputs
+    e_typical = annual_energy(typical_ghi, typical_temp, park.capacity_kwp)
+    check_specific_yield(e_typical, park.capacity_kwp)
 
     # Storage: (n_draws, n_years)
     annual_energies_adjusted = np.zeros((n_draws, n_years))
