@@ -19,7 +19,10 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime, timezone
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+# Allow both `python -m model.precompute` and `python model/precompute.py`
+_repo_root = Path(__file__).parent.parent
+sys.path.insert(0, str(_repo_root))
+sys.path.insert(0, str(_repo_root / "backend"))
 
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
