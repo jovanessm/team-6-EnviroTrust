@@ -617,14 +617,19 @@
 /* ── Model toggle ─────────────────────────────────────────────────────── */
 .model-toggle-section {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 0.75rem 1rem;
   margin: 0 0 1rem;
   background: var(--surface-raised, #f8fafc);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+.model-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .model-toggle-label {
@@ -817,6 +822,11 @@
 
 .ssp-row:last-child {
   border-bottom: none;
+}
+
+.ssp-row-unavailable {
+  opacity: 0.38;
+  pointer-events: none;
 }
 
 .ssp-dot {

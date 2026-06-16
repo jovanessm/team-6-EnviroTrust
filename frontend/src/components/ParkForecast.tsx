@@ -468,8 +468,25 @@ export function ParkForecast({ park, onClose }: Props) {
 
   const lifetimeBaseline = activePark.scenarios['RCP4.5'].lifetime_baseline_gwh * factor;
 
-  const yMin = Math.floor(Math.min(...data.map(d => d.s3_p90)) * 0.98);
-  const yMax = Math.ceil(data[0].baseline * 1.02);
+  // Zoom Y-axis to the actual data range. Recharts stacked areas always stack from
+  // 0, so we shift every value down by chartYMin and add it back in tickFormatter.
+  const dataMin = data.length ? Math.min(...data.map(d => Math.min(d.s3_p90, d.s2_p90, d.s1_p90))) : 0;
+  const dataMax = data.length ? Math.max(...data.map(d => d.baseline)) : 1;
+  const chartPad = Math.max((dataMax - dataMin) * 0.08, 0.05);
+  const chartYMin = Math.floor((dataMin - chartPad) * 10) / 10;
+  const chartYMax = Math.ceil((dataMax + chartPad) * 10) / 10;
+
+  // Shift stacked-area values by chartYMin; line & tooltip data stay at real GWh
+  const chartData = useMemo(() => data.map(d => ({
+    ...d,
+    baseline: +(d.baseline - chartYMin).toFixed(3),
+    s1_p90: +Math.max(0, d.s1_p90 - chartYMin).toFixed(3),
+    s1_p50: +(d.s1_p50 - chartYMin).toFixed(3),
+    s2_p90: +Math.max(0, d.s2_p90 - chartYMin).toFixed(3),
+    s2_p50: +(d.s2_p50 - chartYMin).toFixed(3),
+    s3_p90: +Math.max(0, d.s3_p90 - chartYMin).toFixed(3),
+    s3_p50: +(d.s3_p50 - chartYMin).toFixed(3),
+  })), [data, chartYMin]);
 
   function downloadReport() {
     const html = generateReportHtml(activePark, rawData, [rawS1, rawS2, rawS3]);
@@ -539,17 +556,21 @@ export function ParkForecast({ park, onClose }: Props) {
       {/* ── SSP scenario strip ────────────────────────────── */}
       <div className="ssp-strip">
         {SSP_SCENARIOS.map((scen, i) => {
-          if (scen.rcp === 'RCP2.6' && !activePark.hasRcp26) return null;
+          const unavailable = scen.rcp === 'RCP2.6' && !activePark.hasRcp26;
           const st = scenStats[i];
           return (
-            <div key={scen.id} className="ssp-row">
-              <span className="ssp-dot" style={{ background: scen.line }} />
+            <div key={scen.id} className={`ssp-row${unavailable ? ' ssp-row-unavailable' : ''}`}>
+              <span className="ssp-dot" style={{ background: unavailable ? '#d1d5db' : scen.line }} />
               <span className="ssp-scenario-label">
                 <Term tip={scen.tip}>{scen.label}</Term>
               </span>
-              <span className="ssp-scenario-name">{scen.name} · +{st.dT_30yr_c.toFixed(2)}°C over 30 yr</span>
-              <span className="ssp-delta">{st.lossPct.toFixed(2)}%</span>
-              <span className="ssp-rev">{st.gapM < 0 ? '−' : '+'}{fmtRev(st.gapM)}</span>
+              <span className="ssp-scenario-name">
+                {unavailable
+                  ? 'Not available for EnviroTrust source'
+                  : `${scen.name} · +${st.dT_30yr_c.toFixed(2)}°C over 30 yr`}
+              </span>
+              <span className="ssp-delta">{unavailable ? '—' : `${st.lossPct.toFixed(2)}%`}</span>
+              <span className="ssp-rev">{unavailable ? '—' : `${st.gapM < 0 ? '−' : '+'}${fmtRev(st.gapM)}`}</span>
             </div>
           );
         })}
@@ -557,41 +578,43 @@ export function ParkForecast({ park, onClose }: Props) {
 
       {/* ── Model toggle ─────────────────────────────────── */}
       <div className="model-toggle-section">
-        <div className="model-toggle-label">Climate source</div>
-        <div className="model-toggle-pills">
-          <button
-            className={`model-pill${!useET ? ' active' : ''}`}
-            onClick={() => setUseET(false)}
-          >
-            CMIP6
-          </button>
-          <button
-            className={`model-pill${useET ? ' active' : ''}`}
-            onClick={() => setUseET(true)}
-          >
-            EnviroTrust
-          </button>
-        </div>
-        <div className="model-toggle-label" style={{ marginTop: '0.5rem' }}>Cell temperature model</div>
-        <div className="model-toggle-pills">
-          <button
-            className={`model-pill${!useFaiman ? ' active' : ''}`}
-            onClick={() => setUseFaiman(false)}
-          >
-            Standard · NOCT
-          </button>
-          <button
-            className={`model-pill${useFaiman ? ' active' : ''}`}
-            onClick={() => setUseFaiman(true)}
-          >
-            Satellite · Faiman
-          </button>
-        </div>
-        {useET && (
-          <div className="model-toggle-meta">
-            EnviroTrust provides <strong>RCP4.5 and RCP8.5 only</strong> — SSP1-2.6 row hidden.
+        <div className="model-toggle-row">
+          <div className="model-toggle-label">Climate source</div>
+          <div className="model-toggle-pills">
+            <button
+              className={`model-pill${!useET ? ' active' : ''}`}
+              onClick={() => setUseET(false)}
+            >
+              CMIP6
+            </button>
+            <button
+              className={`model-pill${useET ? ' active' : ''}`}
+              onClick={() => setUseET(true)}
+            >
+              EnviroTrust
+            </button>
           </div>
-        )}
+        </div>
+        <div className="model-toggle-row">
+          <div className="model-toggle-label">Cell temperature model</div>
+          <div className="model-toggle-pills">
+            <button
+              className={`model-pill${!useFaiman ? ' active' : ''}`}
+              onClick={() => setUseFaiman(false)}
+            >
+              Standard · NOCT
+            </button>
+            <button
+              className={`model-pill${useFaiman ? ' active' : ''}`}
+              onClick={() => setUseFaiman(true)}
+            >
+              Satellite · Faiman
+            </button>
+          </div>
+        </div>
+        <div className="model-toggle-meta" style={{ visibility: useET ? 'visible' : 'hidden' }}>
+          EnviroTrust provides <strong>RCP4.5 and RCP8.5 only</strong> — SSP1-2.6 shown as unavailable.
+        </div>
         {/* ── Side-by-side model comparison ── */}
         <div className="model-cmp">
           {/* NOCT column — clickable */}
@@ -670,8 +693,8 @@ export function ParkForecast({ park, onClose }: Props) {
 
       {/* ── Fan chart ─────────────────────────────────────── */}
       <div className="forecast-chart-wrap">
-        <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={data} margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
+        <ResponsiveContainer width="100%" height={340}>
+          <ComposedChart data={chartData} margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis
               dataKey="year"
@@ -680,19 +703,19 @@ export function ParkForecast({ park, onClose }: Props) {
               label={{ value: 'years', position: 'insideRight', offset: -4, fontSize: 11, fill: 'var(--text-muted)', dy: 2 }}
             />
             <YAxis
-              type="number" domain={[yMin, yMax]}
+              type="number" domain={[0, +(chartYMax - chartYMin).toFixed(2)]}
               tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
               tickLine={false} axisLine={false}
-              tickFormatter={v => v.toFixed(1)} width={40}
+              tickFormatter={v => (v + chartYMin).toFixed(1)} width={44}
               label={{ value: 'GWh/yr', angle: -90, position: 'insideLeft', offset: 14, fontSize: 11, fill: 'var(--text-muted)' }}
             />
             <Tooltip content={(props) => (
               <ForecastTooltip active={props.active} label={props.label as number} data={data} />
             )} />
 
-            {/* SSP1-2.6 — blue */}
-            <Area type="monotone" dataKey="s1_p90"  stackId="s1" fill="transparent"           stroke="none" isAnimationActive={false} legendType="none" />
-            <Area type="monotone" dataKey="s1_band" stackId="s1" fill="rgba(59,130,246,0.16)"  stroke="none" isAnimationActive={false} legendType="none" />
+            {/* SSP1-2.6 — blue (hidden when source lacks RCP2.6) */}
+            {activePark.hasRcp26 && <Area type="monotone" dataKey="s1_p90"  stackId="s1" fill="transparent"           stroke="none" isAnimationActive={false} legendType="none" />}
+            {activePark.hasRcp26 && <Area type="monotone" dataKey="s1_band" stackId="s1" fill="rgba(59,130,246,0.16)"  stroke="none" isAnimationActive={false} legendType="none" />}
             {/* SSP2-4.5 — orange */}
             <Area type="monotone" dataKey="s2_p90"  stackId="s2" fill="transparent"           stroke="none" isAnimationActive={false} legendType="none" />
             <Area type="monotone" dataKey="s2_band" stackId="s2" fill="rgba(249,115,22,0.18)"  stroke="none" isAnimationActive={false} legendType="none" />
@@ -703,7 +726,7 @@ export function ParkForecast({ park, onClose }: Props) {
             {/* P50 lines */}
             <Line type="monotone" dataKey="s3_p50"  stroke="#ef4444"           strokeWidth={1.5} dot={false} isAnimationActive={false} legendType="none" />
             <Line type="monotone" dataKey="s2_p50"  stroke="#f97316"           strokeWidth={2}   dot={false} isAnimationActive={false} legendType="none" />
-            <Line type="monotone" dataKey="s1_p50"  stroke="#3b82f6"           strokeWidth={1.5} dot={false} isAnimationActive={false} legendType="none" />
+            {activePark.hasRcp26 && <Line type="monotone" dataKey="s1_p50"  stroke="#3b82f6"           strokeWidth={1.5} dot={false} isAnimationActive={false} legendType="none" />}
             <Line type="monotone" dataKey="baseline" stroke="var(--slate-900)" strokeWidth={2}   strokeDasharray="5 3" dot={false} isAnimationActive={false} legendType="none" />
           </ComposedChart>
         </ResponsiveContainer>
@@ -739,7 +762,7 @@ export function ParkForecast({ park, onClose }: Props) {
                 <tr>
                   <th></th>
                   <th>Industry</th>
-                  <th style={{ color: '#3b82f6' }}>SSP1-2.6</th>
+                  {activePark.hasRcp26 && <th style={{ color: '#3b82f6' }}>SSP1-2.6</th>}
                   <th style={{ color: '#f97316' }}>SSP2-4.5</th>
                   <th style={{ color: '#ef4444' }}>SSP5-8.5</th>
                 </tr>
@@ -748,14 +771,14 @@ export function ParkForecast({ park, onClose }: Props) {
                 <tr>
                   <td className="row-label">30-yr revenue (P50)</td>
                   <td>{fmtRev(s2.revBaseline)}</td>
-                  <td>{fmtRev(s1.revP50)}</td>
+                  {activePark.hasRcp26 && <td>{fmtRev(s1.revP50)}</td>}
                   <td>{fmtRev(s2.revP50)}</td>
                   <td>{fmtRev(s3.revP50)}</td>
                 </tr>
                 <tr>
                   <td className="row-label">Shortfall vs industry</td>
                   <td className="em-dash">—</td>
-                  <td className="gap-neg">{s1.gapM < 0 ? '−' : '+'}€{Math.abs(s1.gapM).toFixed(1)}M ({Math.abs(s1.gapPct).toFixed(2)}%)</td>
+                  {activePark.hasRcp26 && <td className="gap-neg">{s1.gapM < 0 ? '−' : '+'}€{Math.abs(s1.gapM).toFixed(1)}M ({Math.abs(s1.gapPct).toFixed(2)}%)</td>}
                   <td className="gap-neg">{s2.gapM < 0 ? '−' : '+'}€{Math.abs(s2.gapM).toFixed(1)}M ({Math.abs(s2.gapPct).toFixed(2)}%)</td>
                   <td className="gap-neg">{s3.gapM < 0 ? '−' : '+'}€{Math.abs(s3.gapM).toFixed(1)}M ({Math.abs(s3.gapPct).toFixed(2)}%)</td>
                 </tr>
@@ -765,7 +788,7 @@ export function ParkForecast({ park, onClose }: Props) {
                     <span className="fin-row-hint">worst-case 10th pct — 90% exceedance</span>
                   </td>
                   <td className="em-dash">—</td>
-                  <td>{fmtRev(s1.revP10)}</td>
+                  {activePark.hasRcp26 && <td>{fmtRev(s1.revP10)}</td>}
                   <td>{fmtRev(s2.revP10)}</td>
                   <td>{fmtRev(s3.revP10)}</td>
                 </tr>
@@ -775,7 +798,7 @@ export function ParkForecast({ park, onClose }: Props) {
                     <span className="fin-row-hint">best-case 90th pct — 10% exceedance</span>
                   </td>
                   <td className="em-dash">—</td>
-                  <td>{fmtRev(s1.revP90)}</td>
+                  {activePark.hasRcp26 && <td>{fmtRev(s1.revP90)}</td>}
                   <td>{fmtRev(s2.revP90)}</td>
                   <td>{fmtRev(s3.revP90)}</td>
                 </tr>
@@ -853,8 +876,9 @@ export function ParkForecast({ park, onClose }: Props) {
 
               {/* Per-scenario breakdown cards */}
               <div className="opex-scen-grid">
-                {SSP_SCENARIOS.map((scen, i) => {
-                  const s    = scenStats[i];
+                {SSP_SCENARIOS.filter(scen => scen.rcp !== 'RCP2.6' || activePark.hasRcp26).map((scen) => {
+                  const idx    = SSP_SCENARIOS.indexOf(scen);
+                  const s      = scenStats[idx];
                   const netP50 = s.revP50 - opex30yr;
                   const netP10 = s.revP10 - opex30yr;
                   const netP90 = s.revP90 - opex30yr;

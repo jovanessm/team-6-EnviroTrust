@@ -3,9 +3,18 @@ import {
   CartesianGrid, ResponsiveContainer,
 } from 'recharts';
 import { useState, useMemo } from 'react';
-import { PARKS } from '../data/parks';
+import { PARKS, ET_FAIMAN_BY_ID, ET_NOCT_BY_ID } from '../data/parks';
 import type { ParkEntry, ScenarioData } from '../data/parks';
 import './ParkComparison.css';
+
+// ── Faiman boost (mirrors ParkForecast logic) ─────────────────────────────────
+
+function faimanBoost(park: ParkEntry): number {
+  const effectiveWind = park.windExposure * park.meanWindMs;
+  const noctDelta     = 400 * (45 - 20) / 800;
+  const faimanDelta   = 400 / (25 + 6.84 * effectiveWind);
+  return (noctDelta - faimanDelta) * 0.004;
+}
 
 // ── Scenario config ───────────────────────────────────────────────────────────
 
@@ -76,26 +85,31 @@ const COLOR_B = { line: '#8b5cf6', band: 'rgba(139,92,246,0.18)'  };
 
 // ── Scenario tabs ─────────────────────────────────────────────────────────────
 
-function ScenarioTabs({ value, onChange }: { value: RcpKey; onChange: (r: RcpKey) => void }) {
+function ScenarioTabs({ value, onChange, hasRcp26 }: { value: RcpKey; onChange: (r: RcpKey) => void; hasRcp26: boolean }) {
   return (
     <div className="cmp-warming">
       <div className="cmp-warming-header" style={{ marginBottom: '0.75rem' }}>
         <span className="cmp-warming-label">Shared scenario — both parks use this setting</span>
       </div>
       <div className="cmp-ssp-tabs">
-        {SSP_SCENARIOS.map(s => (
-          <button
-            key={s.rcp}
-            className={`cmp-ssp-tab${value === s.rcp ? ' active' : ''}`}
-            style={value === s.rcp
-              ? { borderColor: s.color, color: s.color, background: `${s.color}12` }
-              : {}}
-            onClick={() => onChange(s.rcp)}
-          >
-            <span className="tab-label">{s.label}</span>
-            <span className="tab-name">{s.name}</span>
-          </button>
-        ))}
+        {SSP_SCENARIOS.map(s => {
+          const unavailable = s.rcp === 'RCP2.6' && !hasRcp26;
+          return (
+            <button
+              key={s.rcp}
+              className={`cmp-ssp-tab${value === s.rcp ? ' active' : ''}${unavailable ? ' disabled' : ''}`}
+              style={value === s.rcp && !unavailable
+                ? { borderColor: s.color, color: s.color, background: `${s.color}12` }
+                : unavailable ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+              onClick={() => !unavailable && onChange(s.rcp)}
+              disabled={unavailable}
+              title={unavailable ? 'Not available for EnviroTrust source' : undefined}
+            >
+              <span className="tab-label">{s.label}</span>
+              <span className="tab-name">{unavailable ? 'Not available' : s.name}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -147,13 +161,24 @@ interface MiniChartProps {
 }
 
 function MiniChart({ data, color, label }: MiniChartProps) {
-  const yMin = Math.floor(Math.min(...data.map(d => d.p90)) * 0.97);
-  const yMax = Math.ceil(data[0].baseline * 1.01);
+  const dataMin  = Math.min(...data.map(d => d.p90));
+  const dataMax  = Math.max(...data.map(d => d.baseline));
+  const pad      = Math.max((dataMax - dataMin) * 0.08, 0.05);
+  const chartMin = Math.floor((dataMin - pad) * 10) / 10;
+  const chartMax = Math.ceil((dataMax + pad) * 10) / 10;
+
+  const shifted = data.map(d => ({
+    ...d,
+    baseline: +(d.baseline - chartMin).toFixed(3),
+    p90:      +Math.max(0, d.p90 - chartMin).toFixed(3),
+    p50:      +(d.p50 - chartMin).toFixed(3),
+  }));
+
   return (
     <div className="mini-chart-wrap">
       <div className="mini-chart-park-label">{label}</div>
       <ResponsiveContainer width="100%" height={200}>
-        <ComposedChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+        <ComposedChart data={shifted} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="year"
@@ -162,10 +187,10 @@ function MiniChart({ data, color, label }: MiniChartProps) {
             label={{ value: 'years', position: 'insideRight', offset: -4, fontSize: 10, fill: 'var(--text-muted)', dy: 2 }}
           />
           <YAxis
-            type="number" domain={[yMin, yMax]}
+            type="number" domain={[0, +(chartMax - chartMin).toFixed(2)]}
             tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
             tickLine={false} axisLine={false}
-            tickFormatter={v => v.toFixed(0)} width={34}
+            tickFormatter={v => (v + chartMin).toFixed(1)} width={38}
           />
           <Area type="monotone" dataKey="p90"  stackId="fan" fill="transparent" stroke="none" isAnimationActive={false} />
           <Area type="monotone" dataKey="band" stackId="fan" fill={color.band}  stroke="none" isAnimationActive={false} />
@@ -312,16 +337,66 @@ function CompareTable({ parkA, parkB, statsA, statsB, scenario }: TableProps) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function ParkComparison() {
-  const [parkA,    setParkA]    = useState<ParkEntry>(PARKS[1]); // Weesow (large, high risk)
-  const [parkB,    setParkB]    = useState<ParkEntry>(PARKS[0]); // Eggebek (smaller, lower risk)
-  const [scenario, setScenario] = useState<RcpKey>('RCP4.5');
+  const [parkA,     setParkA]     = useState<ParkEntry>(PARKS[1]);
+  const [parkB,     setParkB]     = useState<ParkEntry>(PARKS[0]);
+  const [scenario,  setScenario]  = useState<RcpKey>('RCP4.5');
+  const [useET,     setUseET]     = useState(false);
+  const [useFaiman, setUseFaiman] = useState(true);
 
-  const scenarioInfo = SSP_SCENARIOS.find(s => s.rcp === scenario)!;
+  const hasRcp26 = !useET;
 
-  const rowsA  = useMemo(() => buildRows(parkA.scenarios[scenario]),  [parkA,  scenario]);
-  const rowsB  = useMemo(() => buildRows(parkB.scenarios[scenario]),  [parkB,  scenario]);
-  const statsA = useMemo(() => getStats(parkA.scenarios[scenario]),   [parkA,  scenario]);
-  const statsB = useMemo(() => getStats(parkB.scenarios[scenario]),   [parkB,  scenario]);
+  // Resolve active park entry for the chosen climate source + cell-temp model
+  function resolveActive(base: ParkEntry): { park: ParkEntry; factor: number } {
+    if (useET) {
+      const map  = useFaiman ? ET_FAIMAN_BY_ID : ET_NOCT_BY_ID;
+      const park = map[base.id] ?? base;
+      return { park, factor: 1 };
+    }
+    if (!useFaiman) {
+      const boost  = faimanBoost(base);
+      return { park: base, factor: 1 / (1 + boost) };
+    }
+    return { park: base, factor: 1 };
+  }
+
+  const { park: activeA, factor: factorA } = resolveActive(parkA);
+  const { park: activeB, factor: factorB } = resolveActive(parkB);
+
+  // If EnviroTrust selected and current scenario is RCP2.6, fall back to RCP4.5
+  const effectiveScenario: RcpKey = (!hasRcp26 && scenario === 'RCP2.6') ? 'RCP4.5' : scenario;
+
+  const scenarioInfo = SSP_SCENARIOS.find(s => s.rcp === effectiveScenario)!;
+
+  const scenA = activeA.scenarios[effectiveScenario] ?? activeA.scenarios['RCP4.5'];
+  const scenB = activeB.scenarios[effectiveScenario] ?? activeB.scenarios['RCP4.5'];
+
+  const rowsA  = useMemo(() => buildRows(scenA).map(r => ({
+    ...r, baseline: r.baseline * factorA, p90: r.p90 * factorA, band: r.band * factorA, p50: r.p50 * factorA,
+  })), [scenA, factorA]);
+  const rowsB  = useMemo(() => buildRows(scenB).map(r => ({
+    ...r, baseline: r.baseline * factorB, p90: r.p90 * factorB, band: r.band * factorB, p50: r.p50 * factorB,
+  })), [scenB, factorB]);
+
+  const rawStatsA = useMemo(() => getStats(scenA), [scenA]);
+  const rawStatsB = useMemo(() => getStats(scenB), [scenB]);
+  const statsA: Stats = factorA === 1 ? rawStatsA : {
+    ...rawStatsA,
+    lifetimeBaseline: rawStatsA.lifetimeBaseline * factorA,
+    lifetimeP50:      rawStatsA.lifetimeP50 * factorA,
+    lifetimeP10:      rawStatsA.lifetimeP10 * factorA,
+    revBaseline:      rawStatsA.revBaseline * factorA,
+    revP50:           rawStatsA.revP50 * factorA,
+    revenueGap:       rawStatsA.revenueGap * factorA,
+  };
+  const statsB: Stats = factorB === 1 ? rawStatsB : {
+    ...rawStatsB,
+    lifetimeBaseline: rawStatsB.lifetimeBaseline * factorB,
+    lifetimeP50:      rawStatsB.lifetimeP50 * factorB,
+    lifetimeP10:      rawStatsB.lifetimeP10 * factorB,
+    revBaseline:      rawStatsB.revBaseline * factorB,
+    revP50:           rawStatsB.revP50 * factorB,
+    revenueGap:       rawStatsB.revenueGap * factorB,
+  };
 
   const samepark = parkA.name === parkB.name;
 
@@ -360,7 +435,28 @@ export function ParkComparison() {
         </div>
       )}
 
-      <ScenarioTabs value={scenario} onChange={setScenario} />
+      {/* ── Source / model toggles ── */}
+      <div className="cmp-model-toggles">
+        <div className="cmp-toggle-row">
+          <span className="cmp-toggle-label">Climate source</span>
+          <div className="cmp-toggle-pills">
+            <button className={`cmp-pill${!useET ? ' active' : ''}`} onClick={() => setUseET(false)}>CMIP6</button>
+            <button className={`cmp-pill${useET ? ' active' : ''}`}  onClick={() => setUseET(true)}>EnviroTrust</button>
+          </div>
+        </div>
+        <div className="cmp-toggle-row">
+          <span className="cmp-toggle-label">Cell temperature model</span>
+          <div className="cmp-toggle-pills">
+            <button className={`cmp-pill${!useFaiman ? ' active' : ''}`} onClick={() => setUseFaiman(false)}>Standard · NOCT</button>
+            <button className={`cmp-pill${useFaiman ? ' active' : ''}`}  onClick={() => setUseFaiman(true)}>Satellite · Faiman</button>
+          </div>
+        </div>
+        <div className="cmp-toggle-note" style={{ visibility: useET ? 'visible' : 'hidden' }}>
+          EnviroTrust provides <strong>RCP4.5 and RCP8.5 only</strong> — SSP1-2.6 disabled.
+        </div>
+      </div>
+
+      <ScenarioTabs value={effectiveScenario} onChange={setScenario} hasRcp26={hasRcp26} />
 
       <div className="compare-charts">
         <div className="compare-chart-card" style={{ borderTopColor: COLOR_A.line }}>

@@ -429,6 +429,75 @@
   color: var(--slate-400);
 }
 
+/* ── Source / model toggles ──────────────────────────────────────────────── */
+.cmp-model-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--slate-50, #f8fafc);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.cmp-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.cmp-toggle-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 160px;
+}
+
+.cmp-toggle-pills {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.cmp-pill {
+  padding: 0.3rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: inherit;
+  line-height: 1;
+}
+
+.cmp-pill:hover {
+  border-color: var(--text-secondary, #6b7280);
+  color: var(--text-primary, #111);
+}
+
+.cmp-pill.active {
+  background: var(--text-primary, #111);
+  color: #fff;
+  border-color: var(--text-primary, #111);
+}
+
+.cmp-toggle-note {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--border);
+}
+
+.cmp-toggle-note strong {
+  color: var(--text-primary, #111);
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .compare-charts   { grid-template-columns: 1fr; }
