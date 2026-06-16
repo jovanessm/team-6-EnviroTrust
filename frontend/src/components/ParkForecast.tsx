@@ -6,13 +6,15 @@ import { useState, useMemo } from 'react';
 import './ParkForecast.css';
 
 export interface ParkEntry {
-  name:     string;
-  type:     string;
-  state:    string;
-  lat:      number;
-  lon:      number;
-  capacity: number; // MWp
-  risk:     number; // heat risk 0–10
+  name:         string;
+  type:         string;
+  state:        string;
+  lat:          number;
+  lon:          number;
+  capacity:     number; // MWp
+  risk:         number; // heat risk 0–10
+  windExposure: number; // fraction of open-field wind at panel surface (from GRW satellite)
+  meanWindMs:   number; // ERA5 mean wind_speed_10m, m/s
 }
 
 interface Props {
@@ -48,8 +50,17 @@ interface Row {
   histYear: number;
 }
 
-function buildWarmingData(capacity: number, risk: number, totalWarming: number): Row[] {
-  const BASE       = capacity * 0.95; // ~950 kWh/kWp/yr → GWh
+function faimanBaselineBoost(windExposure: number, meanWindMs: number): number {
+  const effectiveWind  = windExposure * meanWindMs;
+  const meanGhi        = 400; // W/m² — representative Germany daylight GHI
+  const noctDelta      = meanGhi * (45 - 20) / 800; // °C NOCT heating above ambient
+  const faimanDelta    = meanGhi / (25 + 6.84 * effectiveWind); // °C Faiman heating
+  const coolerBy       = noctDelta - faimanDelta; // Faiman panels run this many °C cooler
+  return coolerBy * 0.004; // power fraction recovered (|γ| = 0.004 /°C)
+}
+
+function buildWarmingData(capacity: number, risk: number, totalWarming: number, windBoost = 0): Row[] {
+  const BASE       = capacity * 0.95 * (1 + windBoost); // ~950 kWh/kWp/yr → GWh; Faiman adds wind cooling
   const DEGRAD     = 0.005;
   const GAMMA      = -0.004;
   const dTperYear  = totalWarming / 30;
@@ -197,6 +208,8 @@ function generateReportHtml(
   gapM_p90: number,
   gapPct_p50: number,
   gapPct_p90: number,
+  useFaiman = false,
+  effectiveWindMs = 0,
 ): string {
   const date      = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const refId     = park.name.replace(/\s+/g, '-').toUpperCase().slice(0, 8) + '-' + Date.now().toString(36).toUpperCase().slice(-5);
@@ -358,8 +371,11 @@ td:first-child{text-align:left;color:#555}
     </div>
     <div style="text-align:right">
       Generated ${date}<br>
-      Physics: NOCT thermal derating + Arrhenius degradation<br>
-      Climate source: CDS/CMIP6 delta method &middot; Park specs: MaStR registry
+      Physics: ${useFaiman
+        ? `Faiman wind-cooling model · ERA5 wind ${effectiveWindMs.toFixed(2)} m/s effective · Arrhenius degradation`
+        : 'NOCT thermal derating · Arrhenius degradation'
+      }<br>
+      Climate source: CDS/CMIP6 delta method &middot; Park specs: MaStR registry${useFaiman ? ' &middot; Wind geometry: Microsoft GRW' : ''}
     </div>
   </div>
 </div>
@@ -435,13 +451,16 @@ function WarmingSlider({ value, onChange }: SliderProps) {
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 
 interface TooltipProps {
-  active?:      boolean;
-  label?:       number;
-  data:         Row[];
-  warmingLevel: number;
+  active?:         boolean;
+  label?:          number;
+  data:            Row[];
+  warmingLevel:    number;
+  useFaiman?:      boolean;
+  windExposure?:   number;
+  effectiveWindMs?: number;
 }
 
-function ForecastTooltip({ active, label, data, warmingLevel }: TooltipProps) {
+function ForecastTooltip({ active, label, data, warmingLevel, useFaiman, windExposure, effectiveWindMs }: TooltipProps) {
   if (!active || label == null) return null;
   const row    = data.find(d => d.year === Number(label));
   if (!row) return null;
@@ -462,6 +481,13 @@ function ForecastTooltip({ active, label, data, warmingLevel }: TooltipProps) {
           <span>Heat reduces output by</span>     <span>{Math.abs(row.thermal).toFixed(2)}%</span>
           <span>Age-related panel decline</span>  <span>−{row.degrad.toFixed(1)}%</span>
           <span>Weather sampled from</span>       <span>{row.histYear}</span>
+          {useFaiman && effectiveWindMs != null && (
+            <>
+              <span>Wind cooling model</span>     <span>Faiman (U0=25, U1=6.84)</span>
+              <span>Wind exposure (GRW)</span>     <span>{(windExposure ?? 0.75).toFixed(3)} of open-field</span>
+              <span>Effective wind speed</span>   <span>{effectiveWindMs.toFixed(2)} m/s (ERA5 × GRW)</span>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -472,10 +498,14 @@ function ForecastTooltip({ active, label, data, warmingLevel }: TooltipProps) {
 
 export function ParkForecast({ park, onClose }: Props) {
   const [warmingLevel, setWarmingLevel] = useState(SLIDER_DEFAULT);
+  const [useFaiman,    setUseFaiman]    = useState(false);
+
+  const windBoost     = useFaiman ? faimanBaselineBoost(park.windExposure, park.meanWindMs) : 0;
+  const effectiveWind = park.windExposure * park.meanWindMs;
 
   const data = useMemo(
-    () => buildWarmingData(park.capacity, park.risk, warmingLevel),
-    [park.capacity, park.risk, warmingLevel],
+    () => buildWarmingData(park.capacity, park.risk, warmingLevel, windBoost),
+    [park.capacity, park.risk, warmingLevel, windBoost],
   );
   const colors = warmingColor(warmingLevel);
 
@@ -515,6 +545,7 @@ export function ParkForecast({ park, onClose }: Props) {
       lifetimeBaseline, lifetimeP50, dp50,
       revBaseline, revP50, revP90,
       gapM_p50, gapM_p90, gapPct_p50, gapPct_p90,
+      useFaiman, effectiveWind,
     );
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
@@ -577,6 +608,33 @@ export function ParkForecast({ park, onClose }: Props) {
         </div>
       </div>
 
+      {/* ── Model toggle ─────────────────────────────────── */}
+      <div className="model-toggle-section">
+        <div className="model-toggle-label">Cell temperature model</div>
+        <div className="model-toggle-pills">
+          <button
+            className={`model-pill${!useFaiman ? ' active' : ''}`}
+            onClick={() => setUseFaiman(false)}
+          >
+            Standard · NOCT
+          </button>
+          <button
+            className={`model-pill${useFaiman ? ' active' : ''}`}
+            onClick={() => setUseFaiman(true)}
+          >
+            Satellite · Faiman
+          </button>
+        </div>
+        {useFaiman && (
+          <div className="model-toggle-meta">
+            Wind exposure <strong>{park.windExposure.toFixed(3)}</strong> (Microsoft GRW satellite)
+            &nbsp;×&nbsp; ERA5 {park.meanWindMs.toFixed(2)} m/s
+            &nbsp;=&nbsp; <strong>{effectiveWind.toFixed(2)} m/s effective</strong>
+            &nbsp;→ panels run ~{(faimanBaselineBoost(park.windExposure, park.meanWindMs) * 100).toFixed(1)}% more output vs NOCT
+          </div>
+        )}
+      </div>
+
       {/* ── Warming slider ────────────────────────────────── */}
       <WarmingSlider value={warmingLevel} onChange={setWarmingLevel} />
 
@@ -622,6 +680,9 @@ export function ParkForecast({ park, onClose }: Props) {
                 label={props.label as number}
                 data={data}
                 warmingLevel={warmingLevel}
+                useFaiman={useFaiman}
+                windExposure={park.windExposure}
+                effectiveWindMs={effectiveWind}
               />
             )} />
 
