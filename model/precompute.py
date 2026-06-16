@@ -41,10 +41,12 @@ from model.config import LIFETIME_YEARS
 
 ERA5_DIR = Path(__file__).parent.parent / "backend" / "CDS Data" / "era5_data"
 DEFAULT_OUTPUT = Path(__file__).parent.parent / "backend" / "precomputed.json"
+FAIMAN_OUTPUT = Path(__file__).parent.parent / "backend" / "precomputed_faiman.json"
 CMIP6_CACHE_DIR = Path(__file__).parent.parent / "backend" / "cmip6_cache"
+GRW_DIR = Path(__file__).parent.parent / "backend" / "GRW Data"
 
 
-def load_baseline(park_name: str) -> BaselineWeather | None:
+def load_baseline(park_name: str, mean_wind_speed: float = 4.0) -> BaselineWeather | None:
     csv_path = ERA5_DIR / f"{park_name}.csv"
     if not csv_path.exists():
         return None
@@ -53,7 +55,16 @@ def load_baseline(park_name: str) -> BaselineWeather | None:
     temp = df["temperature_2m"].values.astype(float)
     ghi = np.where(np.isnan(ghi), 0.0, ghi)
     temp = np.where(np.isnan(temp), np.nanmean(temp), temp)
-    return BaselineWeather(ghi=ghi, temp_amb=temp)
+    return BaselineWeather(ghi=ghi, temp_amb=temp, mean_wind_speed=mean_wind_speed)
+
+
+def load_wind_speeds() -> dict[str, float]:
+    """Load ERA5 mean wind speeds fetched by backend/GRW Data/fetch_wind_speed.py."""
+    path = GRW_DIR / "wind_speed.json"
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return json.load(f)
 
 
 def park_to_dict(park: ParkSpecs) -> dict:
@@ -85,7 +96,15 @@ def prediction_to_dict(pred, finance: dict) -> dict:
     }
 
 
-def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
+def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000, use_faiman: bool = False) -> None:
+    wind_speeds = load_wind_speeds() if use_faiman else {}
+    if use_faiman:
+        if not wind_speeds:
+            print("WARNING: no wind_speed.json found — using default 4.0 m/s for all parks")
+            print(f"  Run: python 'backend/GRW Data/fetch_wind_speed.py'")
+        else:
+            print(f"Faiman model: wind speeds loaded for {len(wind_speeds)} parks from GRW Data/wind_speed.json")
+
     # Resume: load existing output and keep already-computed parks
     existing: dict[str, dict] = {}
     if output_path.exists():
@@ -110,7 +129,8 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
             print(f"  SKIP — already computed")
             continue
 
-        baseline = load_baseline(park.name)
+        mean_wind = wind_speeds.get(park.name, 4.0)
+        baseline = load_baseline(park.name, mean_wind_speed=mean_wind)
         if baseline is None:
             print(f"  SKIP — no ERA5 CSV in {ERA5_DIR}")
             skipped.append(park.name)
@@ -148,8 +168,10 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
 
         for scenario_name, deltas in scenarios.items():
             heat_tail_series = heat_tail_from_deltas(deltas)
-            print(f"  simulate() {scenario_name} ({n_draws} draws)...", end=" ", flush=True)
-            pred = simulate(park, baseline, deltas, n_draws=n_draws, heat_tail_series=heat_tail_series)
+            model_label = "faiman" if use_faiman else "noct"
+            print(f"  simulate() {scenario_name} [{model_label}] ({n_draws} draws)...", end=" ", flush=True)
+            pred = simulate(park, baseline, deltas, n_draws=n_draws,
+                            heat_tail_series=heat_tail_series, use_faiman=use_faiman)
             rev = energy_to_revenue(pred)
             finance = format_for_ui(rev)
             park_entry["scenarios"][scenario_name] = prediction_to_dict(pred, finance)
@@ -170,11 +192,17 @@ def run(output_path: Path, dry_run: bool = False, n_draws: int = 3000) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Pre-compute solar park simulations.")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--output", type=Path, default=None,
+                        help="Output JSON path (default: precomputed.json or precomputed_faiman.json)")
+    parser.add_argument("--model", choices=["noct", "faiman"], default="noct",
+                        help="Cell temperature model: noct (default) or faiman (requires wind data)")
     parser.add_argument("--dry-run", action="store_true", help="Validate data without running MC")
     parser.add_argument("--draws", type=int, default=3000, help="MC draws per scenario (default 3000)")
     args = parser.parse_args()
-    run(args.output, dry_run=args.dry_run, n_draws=args.draws)
+
+    use_faiman = args.model == "faiman"
+    output_path = args.output or (FAIMAN_OUTPUT if use_faiman else DEFAULT_OUTPUT)
+    run(output_path, dry_run=args.dry_run, n_draws=args.draws, use_faiman=use_faiman)
 
 
 if __name__ == "__main__":

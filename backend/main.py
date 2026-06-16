@@ -5,18 +5,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from EnviroTrustAPI import EnviroTrustClient
 
 PRECOMPUTED_PATH = Path(__file__).parent / "precomputed.json"
+PRECOMPUTED_FAIMAN_PATH = Path(__file__).parent / "precomputed_faiman.json"
 
 
-def _load_precomputed() -> dict:
-    if not PRECOMPUTED_PATH.exists():
+def _load_precomputed(path: Path) -> dict:
+    if not path.exists():
         return {}
-    with open(PRECOMPUTED_PATH) as f:
+    with open(path) as f:
         return json.load(f)
 
 
-# Load once at startup; fast to serve from memory
-_data = _load_precomputed()
-_parks_index: dict = {p["id"]: p for p in _data.get("parks", [])}
+# Load both models at startup; serve from memory
+_data_noct = _load_precomputed(PRECOMPUTED_PATH)
+_data_faiman = _load_precomputed(PRECOMPUTED_FAIMAN_PATH)
+
+_parks_noct: dict = {p["id"]: p for p in _data_noct.get("parks", [])}
+_parks_faiman: dict = {p["id"]: p for p in _data_faiman.get("parks", [])}
+
+# Fallback for park listing: prefer NOCT, fall back to Faiman if only that exists
+_data = _data_noct if _data_noct else _data_faiman
+_parks_index = _parks_noct if _parks_noct else _parks_faiman
 
 
 app = FastAPI(
@@ -75,24 +83,35 @@ def get_park(park_id: str):
 @app.post("/api/predict")
 def predict(body: dict):
     """
-    Return pre-computed prediction for a park + scenario.
+    Return pre-computed prediction for a park + scenario + model.
 
-    Body: {"parkId": "Eggebek_Solar_Park", "scenario": "RCP4.5"}
-    Scenario defaults to RCP4.5 if omitted.
+    Body: {"parkId": "Eggebek_Solar_Park", "scenario": "RCP4.5", "model": "noct"}
+    - scenario defaults to "RCP4.5"
+    - model: "noct" (default, standard NOCT T_cell) or "faiman" (Faiman + satellite wind)
     """
     park_id = body.get("parkId") or body.get("park_id")
     scenario = body.get("scenario", "RCP4.5")
+    model = body.get("model", "noct").lower()
 
-    park = _parks_index.get(park_id)
+    if model not in ("noct", "faiman"):
+        raise HTTPException(status_code=400, detail=f"model must be 'noct' or 'faiman'")
+
+    parks_index = _parks_faiman if model == "faiman" else _parks_noct
+    if not parks_index:
+        raise HTTPException(
+            status_code=503,
+            detail=f"precomputed_{model}.json not found — run: python -m model.precompute --model {model}",
+        )
+
+    park = parks_index.get(park_id)
     if not park:
         raise HTTPException(status_code=404, detail=f"Park '{park_id}' not found")
 
     scenarios = park.get("scenarios", {})
     if scenario not in scenarios:
-        available = list(scenarios.keys())
         raise HTTPException(
             status_code=404,
-            detail=f"Scenario '{scenario}' not found. Available: {available}",
+            detail=f"Scenario '{scenario}' not found. Available: {list(scenarios.keys())}",
         )
 
     result = scenarios[scenario]
@@ -100,6 +119,7 @@ def predict(body: dict):
         "parkId": park_id,
         "parkName": park["name"],
         "scenario": scenario,
+        "model": model,
         "lat": park["lat"],
         "lon": park["lon"],
         "capacity_kwp": park["capacity_kwp"],
@@ -108,9 +128,13 @@ def predict(body: dict):
 
 
 @app.get("/api/predict/{park_id}")
-def predict_get(park_id: str, scenario: str = Query("RCP4.5")):
+def predict_get(
+    park_id: str,
+    scenario: str = Query("RCP4.5"),
+    model: str = Query("noct", description="'noct' or 'faiman'"),
+):
     """GET variant of /api/predict for browser-friendly access."""
-    return predict({"parkId": park_id, "scenario": scenario})
+    return predict({"parkId": park_id, "scenario": scenario, "model": model})
 
 
 @app.get("/api/heat-wind/timeseries")

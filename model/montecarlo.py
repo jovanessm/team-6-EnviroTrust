@@ -10,7 +10,7 @@ from model.config import (
     DEGRADATION_RATE_DEFAULT,
     LIFETIME_YEARS,
 )
-from model.physics import annual_energy
+from model.physics import annual_energy, annual_energy_faiman
 from model.typical_year import build_typical_year, sample_year
 from model.degradation import degradation_factor
 from model.climate import apply_delta, heat_tail
@@ -24,6 +24,7 @@ def simulate(
     n_draws: int = N_DRAWS_DEFAULT,
     seed: int = RNG_SEED,
     heat_tail_series: np.ndarray | None = None,
+    use_faiman: bool = False,
 ) -> Prediction:
     """
     Run Monte Carlo simulation for one scenario.
@@ -43,16 +44,20 @@ def simulate(
     Optionally applies heat-tail derating per year (from EnviroTrust wildfire timeseries).
 
     Args:
-        park: solar park specs (capacity, gamma, NOCT)
-        baseline: multi-year historical weather (GHI + temp)
+        park: solar park specs (capacity, gamma, NOCT, wind_exposure)
+        baseline: multi-year historical weather (GHI + temp + mean_wind_speed)
         deltas: temperature change projections for one scenario
         n_draws: number of MC draws
         seed: RNG seed for reproducibility
         heat_tail_series: optional extra dT per year for hottest hours, shape (n_years,)
+        use_faiman: if True, use Faiman T_cell model with park.wind_exposure ×
+                    baseline.mean_wind_speed as effective wind; else use NOCT
 
     Returns:
         Prediction with p10/p50/p90 fans and lifetime stats
     """
+    # Effective wind speed at panel surface (park geometry reduces open-field wind)
+    effective_wind = baseline.mean_wind_speed * park.wind_exposure
     rng = np.random.default_rng(seed)
 
     typical_ghi, typical_temp = build_typical_year(baseline.ghi, baseline.temp_amb)
@@ -91,14 +96,16 @@ def simulate(
             ghi_sampled, temp_sampled = sample_year(baseline.ghi, baseline.temp_amb, rng)
 
             # Baseline path: this year's weather, no climate shift
-            e_year_base = annual_energy(
-                ghi_sampled,
-                temp_sampled,
-                park.capacity_kwp,
-                gamma=gamma,
-                noct=park.noct_c,
-                pr_nonthermal=pr,
-            )
+            if use_faiman:
+                e_year_base = annual_energy_faiman(
+                    ghi_sampled, temp_sampled, park.capacity_kwp,
+                    wind_speed=effective_wind, gamma=gamma, pr_nonthermal=pr,
+                )
+            else:
+                e_year_base = annual_energy(
+                    ghi_sampled, temp_sampled, park.capacity_kwp,
+                    gamma=gamma, noct=park.noct_c, pr_nonthermal=pr,
+                )
             annual_energies_baseline[draw, year] = e_year_base * deg_baseline[year]
 
             # Adjusted path: SAME weather + temperature delta + heat-tail
@@ -106,14 +113,16 @@ def simulate(
             if heat_tail_series is not None:
                 temp_shifted = heat_tail(temp_shifted, dT_extra=heat_tail_series[year])
 
-            e_year_adj = annual_energy(
-                ghi_sampled,
-                temp_shifted,
-                park.capacity_kwp,
-                gamma=gamma,
-                noct=park.noct_c,
-                pr_nonthermal=pr,
-            )
+            if use_faiman:
+                e_year_adj = annual_energy_faiman(
+                    ghi_sampled, temp_shifted, park.capacity_kwp,
+                    wind_speed=effective_wind, gamma=gamma, pr_nonthermal=pr,
+                )
+            else:
+                e_year_adj = annual_energy(
+                    ghi_sampled, temp_shifted, park.capacity_kwp,
+                    gamma=gamma, noct=park.noct_c, pr_nonthermal=pr,
+                )
             annual_energies_adjusted[draw, year] = e_year_adj * deg_adjusted[year]
 
     # Per-year fan from the climate-adjusted distribution (includes weather spread)
@@ -151,6 +160,9 @@ def simulate(
         "heat_tail_applied": heat_tail_series is not None,
         "arrhenius_degradation": True,
         "variance_reduction": "common random numbers (baseline & adjusted share weather + params per draw)",
+        "cell_temp_model": "faiman" if use_faiman else "noct",
+        "wind_exposure": park.wind_exposure if use_faiman else None,
+        "effective_wind_ms": round(effective_wind, 2) if use_faiman else None,
     }
 
     return Prediction(
