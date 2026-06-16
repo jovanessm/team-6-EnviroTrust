@@ -442,7 +442,10 @@ export function ParkForecast({ park, onClose }: Props) {
   const faimanPanelDT = 400 / (25 + 6.84 * effectiveWind); // Faiman cell ΔT
 
   const opexKperYear  = Math.max(0, parseFloat(opexInput) || 0);
-  const opex30yr      = opexKperYear * 30 / 1000; // €M over 30 years
+  const opex30yr      = opexKperYear * 30 / 1000; // €M nominal (undiscounted)
+  // NPV of a constant annual payment C for 30 yrs at 6%: C × (1 − 1.06⁻³⁰) / 0.06
+  const OPEX_ANNUITY  = (1 - Math.pow(1.06, -30)) / 0.06; // ≈ 13.765
+  const opexNPV       = opexKperYear * OPEX_ANNUITY / 1000; // €M discounted @ 6% WACC
   const hasOpex       = opexKperYear > 0;
 
   const rawData  = useMemo(() => buildMultiData(activePark), [activePark]);
@@ -881,34 +884,38 @@ export function ParkForecast({ park, onClose }: Props) {
           {hasOpex && (
             <div className="opex-result">
               <div className="opex-result-header">
-                <span className="opex-result-title">Net profit over 30 years</span>
-                <span className="opex-30yr-total">30-yr costs: <strong>€{opex30yr.toFixed(1)}M</strong> &nbsp;·&nbsp; €{opexKperYear.toLocaleString('de-DE')}k/yr</span>
+                <span className="opex-result-title">Net profit over 30 years (NPV)</span>
+                <span className="opex-30yr-total">
+                  Nominal costs: <strong>€{opex30yr.toFixed(1)}M</strong>
+                  &nbsp;·&nbsp; NPV @ 6%: <strong>€{opexNPV.toFixed(1)}M</strong>
+                  &nbsp;·&nbsp; €{opexKperYear.toLocaleString('de-DE')}k/yr
+                </span>
               </div>
 
-              {/* Ledger — SSP2-4.5 P50 as headline */}
+              {/* Ledger — SSP2-4.5 P50 as headline, NPV basis */}
               <div className="opex-calc">
                 <div className="opex-calc-row">
-                  <span>Gross revenue (P50 · SSP2-4.5)</span>
-                  <span>{fmtRev(s2.revP50)}</span>
+                  <span>NPV revenue (P50 · SSP2-4.5 · 6% WACC)</span>
+                  <span>{fmtRev(s2.npvP50)}</span>
                 </div>
                 <div className="opex-calc-row opex-calc-sub">
-                  <span>− Operating costs (30 yr)</span>
-                  <span>−{fmtRev(opex30yr)}</span>
+                  <span>− NPV operating costs (6% WACC)</span>
+                  <span>−{fmtRev(opexNPV)}</span>
                 </div>
-                <div className={`opex-calc-row opex-calc-total ${(s2.revP50 - opex30yr) >= 0 ? 'opex-pos' : 'opex-neg'}`}>
-                  <span>Net profit (P50 · SSP2-4.5)</span>
-                  <span>{(s2.revP50 - opex30yr) >= 0 ? '' : '−'}{fmtRev(Math.abs(s2.revP50 - opex30yr))}</span>
+                <div className={`opex-calc-row opex-calc-total ${(s2.npvP50 - opexNPV) >= 0 ? 'opex-pos' : 'opex-neg'}`}>
+                  <span>Net NPV (P50 · SSP2-4.5)</span>
+                  <span>{(s2.npvP50 - opexNPV) >= 0 ? '' : '−'}{fmtRev(Math.abs(s2.npvP50 - opexNPV))}</span>
                 </div>
               </div>
 
-              {/* Per-scenario breakdown cards */}
+              {/* Per-scenario breakdown cards — NPV basis */}
               <div className="opex-scen-grid">
                 {SSP_SCENARIOS.filter(scen => scen.rcp !== 'RCP2.6' || activePark.hasRcp26).map((scen) => {
                   const idx    = SSP_SCENARIOS.indexOf(scen);
                   const s      = scenStats[idx];
-                  const netP50 = s.revP50 - opex30yr;
-                  const netP10 = s.revP10 - opex30yr;
-                  const netP90 = s.revP90 - opex30yr;
+                  const netP50 = s.npvP50 - opexNPV;
+                  const netP10 = s.npvP10 - opexNPV;
+                  const netP90 = (s.npvBaseline) - opexNPV; // P90 upside ≈ baseline NPV
                   const profitable = netP50 >= 0;
                   return (
                     <div key={scen.id} className={`opex-scen-card ${profitable ? 'opex-scen-pos' : 'opex-scen-neg'}`}>
