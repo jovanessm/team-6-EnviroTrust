@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EnviroTrust — How It Works</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 56px 40px 64px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 800;
+    color: #111;
+    margin-bottom: 10px;
+    letter-spacing: -0.03em;
+  }
+  .subtitle {
+    font-size: 17px;
+    color: #888;
+    margin-bottom: 56px;
+  }
+
+  .diagram {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    max-width: 1400px;
+  }
+
+  /* ── Columns ── */
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+  }
+  .col-label {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #aaa;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px 22px;
+    position: relative;
+  }
+  .card-icon { font-size: 28px; margin-bottom: 10px; }
+  .card-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 6px;
+  }
+  .card-desc {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.6;
+  }
+  .card-tag {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: #f3f4f6;
+    color: #777;
+  }
+
+  .card.blue   { border-color: #bfdbfe; background: #eff6ff; }
+  .card.green  { border-color: #bbf7d0; background: #f0fdf4; }
+  .card.amber  { border-color: #fde68a; background: #fffbeb; }
+  .card.purple { border-color: #ddd6fe; background: #f5f3ff; }
+
+  /* ── Arrows ── */
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    flex: 0 0 72px;
+    padding-top: 40px; /* align with card tops */
+  }
+  .arrow-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+  }
+  .arrow-line {
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #d1d5db, #6b7280);
+    position: relative;
+  }
+  .arrow-line::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: -6px;
+    border: 6px solid transparent;
+    border-left: 10px solid #6b7280;
+  }
+
+  /* ── Engine ── */
+  .engine {
+    flex: 0 0 280px;
+    background: #111;
+    border-radius: 20px;
+    padding: 28px 24px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .engine-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #6b7280;
+    margin-bottom: 4px;
+  }
+  .engine-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .engine-num {
+    flex: 0 0 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #374151;
+    color: #e5e7eb;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+  }
+  .engine-text strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .engine-text span {
+    font-size: 12.5px;
+    color: #9ca3af;
+    line-height: 1.5;
+  }
+  .engine-divider { height: 1px; background: #1f2937; }
+
+  /* ── Output ── */
+  .output-card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px 22px;
+  }
+  .output-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 3px 10px;
+    border-radius: 99px;
+    margin-bottom: 10px;
+  }
+  .badge-green  { background: #dcfce7; color: #166534; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+
+  .chart-mock {
+    width: 100%;
+    height: 90px;
+    background: #f9fafb;
+    border-radius: 10px;
+    border: 1px solid #f3f4f6;
+    margin: 10px 0;
+    overflow: hidden;
+  }
+
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 8px;
+    gap: 8px;
+  }
+  .metric-label { font-size: 13px; color: #888; }
+  .metric-value { font-size: 16px; font-weight: 700; color: #111; white-space: nowrap; }
+  .metric-value.neg { color: #dc2626; }
+
+  /* ── Scenario pills ── */
+  .scenarios { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 99px;
+    letter-spacing: 0.03em;
+  }
+  .pill-low  { background: #dbeafe; color: #1e40af; }
+  .pill-mid  { background: #fef3c7; color: #92400e; }
+  .pill-high { background: #fee2e2; color: #991b1b; }
+
+  /* ── Footer ── */
+  .footnote {
+    margin-top: 48px;
+    font-size: 13px;
+    color: #aaa;
+    text-align: center;
+    max-width: 860px;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<h1>How NviroTrust Works</h1>
+<p class="subtitle">From real-world data to a 30-year climate-adjusted forecast — in seconds</p>
+
+<div class="diagram">
+
+  <!-- ══ COL 1: INPUTS ══ -->
+  <div class="col">
+    <div class="col-label">Real-World Inputs</div>
+
+    <div class="card blue">
+      <div class="card-icon">🏭</div>
+      <div class="card-title">Park Specifications</div>
+      <div class="card-desc">Location, size, and hardware for each park — sourced from Germany's official solar registry. Nothing invented.</div>
+      <span class="card-tag">MaStR Registry</span>
+    </div>
+
+    <div class="card green">
+      <div class="card-icon">🌤️</div>
+      <div class="card-title">26 Years of Weather</div>
+      <div class="card-desc">Hourly sunlight and temperature at each park location from 2000–2026. Used to build the "typical year" baseline.</div>
+      <span class="card-tag">ERA5 · Copernicus</span>
+    </div>
+
+    <div class="card amber">
+      <div class="card-icon">🌡️</div>
+      <div class="card-title">Climate Projections</div>
+      <div class="card-desc">How much warmer will it get? 7 independent climate models across 3 future scenarios.</div>
+      <div class="scenarios">
+        <span class="pill pill-low">Optimistic</span>
+        <span class="pill pill-mid">Middle road</span>
+        <span class="pill pill-high">Worst case</span>
+      </div>
+      <span class="card-tag">CMIP6 · 7 Models</span>
+    </div>
+
+    <div class="card purple">
+      <div class="card-icon">🛰️</div>
+      <div class="card-title">Satellite Park Geometry</div>
+      <div class="card-desc">Park shape from satellite imagery — used to estimate wind cooling at panel surface for a more accurate temperature model.</div>
+      <span class="card-tag">Microsoft GRW</span>
+    </div>
+
+  </div>
+
+  <!-- ARROW 1 -->
+  <div class="arrow">
+    <div class="arrow-inner">
+      <div class="arrow-line"></div>
+    </div>
+  </div>
+
+  <!-- ══ ENGINE ══ -->
+  <div class="engine">
+    <div class="engine-title">Climate Physics Engine</div>
+
+    <div class="engine-step">
+      <div class="engine-num">1</div>
+      <div class="engine-text">
+        <strong>Build the industry baseline</strong>
+        <span>Simulate 30-year output from historical weather held flat — exactly what lenders assume today.</span>
+      </div>
+    </div>
+
+    <div class="engine-divider"></div>
+
+    <div class="engine-step">
+      <div class="engine-num">2</div>
+      <div class="engine-text">
+        <strong>NOCT &amp; Faiman temperature models</strong>
+        <span>
+          <em style="color:#e5e7eb">NOCT</em> — standard formula: sunlight + air temperature → panel heat.<br><br>
+          <em style="color:#e5e7eb">Faiman</em> — upgraded: adds real wind speed from satellite geometry for a more accurate cell temperature.
+        </span>
+      </div>
+    </div>
+
+    <div class="engine-divider"></div>
+
+    <div class="engine-step">
+      <div class="engine-num">3</div>
+      <div class="engine-text">
+        <strong>Apply climate warming year by year</strong>
+        <span>Two effects compound over 30 years:<br>
+          <em style="color:#e5e7eb">Thermal derating</em> — hotter panels produce less power.<br>
+          <em style="color:#e5e7eb">Arrhenius degradation</em> — hotter panels age faster.
+        </span>
+      </div>
+    </div>
+
+    <div class="engine-divider"></div>
+
+    <div class="engine-step">
+      <div class="engine-num">4</div>
+      <div class="engine-text">
+        <strong>Monte Carlo — 3,000 simulations</strong>
+        <span>Vary weather years, warming rates, and panel parameters to produce an honest probability range — not a single point estimate.</span>
+      </div>
+    </div>
+
+    <div class="engine-divider"></div>
+
+    <div class="engine-step">
+      <div class="engine-num">5</div>
+      <div class="engine-text">
+        <strong>Translate to revenue</strong>
+        <span>Energy × SMARD electricity price (Germany mean 2018–2026, €93.4/MWh) = revenue at risk vs the industry number.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW 2 -->
+  <div class="arrow">
+    <div class="arrow-inner">
+      <div class="arrow-line"></div>
+    </div>
+  </div>
+
+  <!-- ══ COL 3: OUTPUT ══ -->
+  <div class="col">
+    <div class="col-label">What You See</div>
+
+    <div class="output-card">
+      <span class="output-badge badge-blue">30-Year Forecast</span>
+      <div class="card-title" style="font-size:17px;font-weight:700;color:#111;margin-bottom:6px;">Fan Chart</div>
+      <div class="card-desc" style="font-size:14px;color:#555;">Industry flat line vs our climate-adjusted forecast with uncertainty band — one view per scenario.</div>
+      <div class="chart-mock">
+        <svg viewBox="0 0 260 90" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+          <polygon points="14,18 246,26 246,52 14,38" fill="rgba(239,68,68,0.13)"/>
+          <polyline points="14,28 246,28" fill="none" stroke="#374151" stroke-width="2" stroke-dasharray="5,3"/>
+          <polyline points="14,28 80,32 160,38 246,46" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+          <text x="16" y="22" font-size="9" fill="#374151" font-family="sans-serif" font-weight="600">Industry assumption</text>
+          <text x="150" y="60" font-size="9" fill="#ef4444" font-family="sans-serif" font-weight="600">Climate-adjusted (P50)</text>
+          <text x="180" y="36" font-size="8" fill="#ef4444" font-family="sans-serif" opacity="0.6">uncertainty band</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="output-card">
+      <span class="output-badge badge-red">Revenue at Risk</span>
+      <div class="card-desc" style="font-size:14px;color:#555;margin-bottom:6px;">The euro gap between the standard forecast and the climate-adjusted expected outcome over 30 years.</div>
+      <div class="metric-row">
+        <span class="metric-label">Industry standard (30yr)</span>
+        <span class="metric-value">€42.1M</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Climate-adjusted (P50)</span>
+        <span class="metric-value">€41.9M</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Shortfall</span>
+        <span class="metric-value neg">−€0.2M (−0.5%)</span>
+      </div>
+    </div>
+
+    <div class="output-card">
+      <span class="output-badge badge-green">Climate Risk Score</span>
+      <div class="card-desc" style="font-size:14px;color:#555;margin-bottom:6px;">Each park scored 0–10 from its actual physics output — not a survey or proxy.</div>
+      <div class="metric-row">
+        <span class="metric-label">Eggebek (north, maritime)</span>
+        <span class="metric-value">0.0 / 10</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Lauingen (Bavaria)</span>
+        <span class="metric-value neg">10.0 / 10</span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<p class="footnote">
+  Park specs: Marktstammdatenregister &nbsp;·&nbsp; Weather: Copernicus ERA5 &nbsp;·&nbsp;
+  Climate: CMIP6 HighResMIP 7-model ensemble &nbsp;·&nbsp; Price: SMARD day-ahead mean €93.4/MWh (Germany, 2018–2026)<br>
+  Results pre-computed at deploy time — dashboard response is instant. Revenue figures illustrative only.
+</p>
+
+</body>
+</html>
