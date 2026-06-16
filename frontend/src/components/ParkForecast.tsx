@@ -797,7 +797,7 @@ export function ParkForecast({ park, onClose }: Props) {
                 </tr>
                 <tr className="fin-tr-highlight">
                   <td className="row-label">
-                    <Term tip="Net Present Value: future revenues discounted at 6% WACC (typical German utility-scale solar project finance rate). Year 30 cash flows are worth ~17 cents today — NPV is what lenders actually underwrite.">NPV (P50 · 6% WACC)</Term>
+                    <Term tip="Present Value of Cash Flows: future revenues discounted at 6% WACC (typical German utility-scale solar project finance rate). Year 30 cash flows are worth ~17 cents today — PV of CFs is what lenders actually underwrite.">PV of CFs (P50 · 6% WACC)</Term>
                     <span className="fin-row-hint">time-value-adjusted · lender view</span>
                   </td>
                   <td>{fmtRev(s2.npvBaseline)}</td>
