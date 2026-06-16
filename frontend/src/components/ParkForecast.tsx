@@ -315,10 +315,10 @@ th:first-child{text-align:left}td{padding:7px 12px;text-align:right;border-botto
 .rpt-footer{border-top:1px solid #e5e7eb;padding-top:10px;font-size:9px;color:#aaa;display:flex;justify-content:space-between;gap:20px}
 @media print{.print-bar{display:none!important}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{padding:0;max-width:none}@page{margin:16mm 20mm}}
 </style></head><body>
-<div class="print-bar"><span>NviroTrust Climate Risk Report — ${park.name}</span><button class="print-btn" onclick="window.print()">Save as PDF</button></div>
+<div class="print-bar"><span>NviroAerox Climate Risk Report — ${park.name}</span><button class="print-btn" onclick="window.print()">Save as PDF</button></div>
 <div class="page">
   <div class="rpt-hdr">
-    <div><div class="rpt-brand">NviroTrust</div><div class="rpt-brand-sub">Power, Seen From Orbit · EnviroTrust Challenge 2026</div></div>
+    <div><div class="rpt-brand">NviroAerox</div><div class="rpt-brand-sub">Power, Seen From Orbit · NviroAerox Challenge 2026</div></div>
     <div class="rpt-doc-meta"><div class="rpt-doc-type">Climate Risk Assessment</div><div>${date}</div><div>Ref: NVT-${refId}</div></div>
   </div>
   <div class="rpt-park">
@@ -411,8 +411,11 @@ export function ParkForecast({ park, onClose }: Props) {
   const [opexInput,  setOpexInput]  = useState('');
 
   const windBoost     = faimanBaselineBoost(park.windExposure, park.meanWindMs);
-  const factor        = useFaiman ? 1 : 1 / (1 + windBoost);
+  const noctFactor    = 1 / (1 + windBoost);
+  const factor        = useFaiman ? 1 : noctFactor;
   const effectiveWind = park.windExposure * park.meanWindMs;
+  const noctPanelDT   = 12.5; // 400 W/m² × 25°C / 800 = fixed NOCT heating
+  const faimanPanelDT = 400 / (25 + 6.84 * effectiveWind); // Faiman cell ΔT
 
   const opexKperYear  = Math.max(0, parseFloat(opexInput) || 0);
   const opex30yr      = opexKperYear * 30 / 1000; // €M over 30 years
@@ -537,18 +540,64 @@ export function ParkForecast({ park, onClose }: Props) {
             Satellite · Faiman
           </button>
         </div>
-        {useFaiman ? (
-          <div className="model-toggle-meta">
-            Wind exposure <strong>{park.windExposure.toFixed(3)}</strong> (Microsoft GRW satellite)
-            &nbsp;×&nbsp; ERA5 {park.meanWindMs.toFixed(2)} m/s
-            &nbsp;=&nbsp; <strong>{effectiveWind.toFixed(2)} m/s effective</strong>
-            &nbsp;→ panels run ~{(windBoost * 100).toFixed(1)}% more output vs NOCT
+        {/* ── Side-by-side model comparison ── */}
+        <div className="model-cmp">
+          {/* NOCT column — clickable */}
+          <button className={`model-cmp-col${!useFaiman ? ' model-cmp-active' : ''}`} onClick={() => setUseFaiman(false)}>
+            <div className="model-cmp-col-hdr">
+              <span className="model-cmp-col-name">Standard · NOCT</span>
+              {!useFaiman && <span className="model-cmp-badge">active</span>}
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">30-yr P50 revenue</span>
+              <span className="model-cmp-value">{fmtRev(rawS2.revP50 * noctFactor)}</span>
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">Lifetime P50 output</span>
+              <span className="model-cmp-value">{fmtGwh(park.scenarios['RCP4.5'].lifetime_p50_gwh * noctFactor)}</span>
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">Cell ΔT above ambient</span>
+              <span className="model-cmp-value">+{noctPanelDT.toFixed(1)}°C</span>
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">Wind cooling</span>
+              <span className="model-cmp-value model-cmp-muted">not modelled</span>
+            </div>
+          </button>
+
+          {/* Centre arrow */}
+          <div className="model-cmp-divider">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+            </svg>
+            <span className="model-cmp-gain">+{(windBoost * 100).toFixed(1)}%</span>
           </div>
-        ) : (
-          <div className="model-toggle-meta">
-            Standard NOCT model — wind cooling not accounted for. Switch to <strong>Satellite · Faiman</strong> to see how satellite-measured wind exposure improves panel efficiency estimates.
-          </div>
-        )}
+
+          {/* Faiman column — clickable */}
+          <button className={`model-cmp-col${useFaiman ? ' model-cmp-active model-cmp-faiman' : ''}`} onClick={() => setUseFaiman(true)}>
+            <div className="model-cmp-col-hdr">
+              <span className="model-cmp-col-name">Satellite · Faiman</span>
+              {useFaiman && <span className="model-cmp-badge">active</span>}
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">30-yr P50 revenue</span>
+              <span className="model-cmp-value model-cmp-better">{fmtRev(rawS2.revP50)}</span>
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">Lifetime P50 output</span>
+              <span className="model-cmp-value model-cmp-better">{fmtGwh(park.scenarios['RCP4.5'].lifetime_p50_gwh)}</span>
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">Cell ΔT above ambient</span>
+              <span className="model-cmp-value model-cmp-better">+{faimanPanelDT.toFixed(1)}°C</span>
+            </div>
+            <div className="model-cmp-metric">
+              <span className="model-cmp-label">Wind cooling</span>
+              <span className="model-cmp-value">{effectiveWind.toFixed(2)} m/s eff. (GRW × ERA5)</span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* ── Legend ───────────────────────────────────────── */}

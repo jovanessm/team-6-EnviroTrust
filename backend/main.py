@@ -1,8 +1,12 @@
 import json
+import os
 from pathlib import Path
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 from EnviroTrustAPI import EnviroTrustClient
+
+load_dotenv()
 
 PRECOMPUTED_PATH = Path(__file__).parent / "precomputed.json"
 PRECOMPUTED_FAIMAN_PATH = Path(__file__).parent / "precomputed_faiman.json"
@@ -25,6 +29,78 @@ _parks_faiman: dict = {p["id"]: p for p in _data_faiman.get("parks", [])}
 # Fallback for park listing: prefer NOCT, fall back to Faiman if only that exists
 _data = _data_noct if _data_noct else _data_faiman
 _parks_index = _parks_noct if _parks_noct else _parks_faiman
+
+# ── Anthropic chat client ──────────────────────────────────────────────────────
+
+try:
+    import anthropic as _anthropic_lib
+    _anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    _anthropic_client = _anthropic_lib.Anthropic(api_key=_anthropic_key) if _anthropic_key else None
+except ImportError:
+    _anthropic_client = None
+
+_STATE_MAP: dict[str, str] = {
+    "Eggebek_Solar_Park":                 "Schleswig-Holstein",
+    "Solarpark_Weesow_Willmersdorf":      "Brandenburg",
+    "Solarpark_Gottesgabe_Neuhardenberg": "Brandenburg",
+    "Brandenburg_Briest_Solarpark":       "Brandenburg",
+    "Finsterwalde_Solar_Park":            "Brandenburg",
+    "Krughuette_Solar_Park":              "Saxony-Anhalt",
+    "Solarpark_Meuro":                    "Brandenburg / Saxony",
+    "Lauingen_Energy_Park":               "Bavaria",
+    "Strasskirchen_Solar_Park":           "Bavaria",
+    "Solarpark_Pocking":                  "Bavaria",
+}
+
+
+def _build_chat_context(parks: list) -> str:
+    summary = []
+    for p in parks:
+        entry: dict = {
+            "name": p["name"],
+            "state": _STATE_MAP.get(p["id"], "Germany"),
+            "capacity_mwp": round(p["capacity_kwp"] / 1000, 2),
+            "commissioned": p.get("commissioned"),
+            "risk_score": p.get("risk_score", 0),
+            "scenarios": {},
+        }
+        for rcp, s in p.get("scenarios", {}).items():
+            fin = s.get("finance", {})
+            prov = s.get("provenance", {})
+            entry["scenarios"][rcp] = {
+                "delta_pct": round(s.get("delta_pct", 0), 3),
+                "dT_30yr_c": round(prov.get("dT_30yr_c", 0), 2),
+                "lifetime_baseline_gwh": round(s.get("lifetime_baseline_kwh", 0) / 1e6, 2),
+                "lifetime_p50_gwh": round(s.get("lifetime_p50_kwh", 0) / 1e6, 2),
+                "revenue_baseline_meur": fin.get("lifetime_baseline_meur"),
+                "revenue_p50_meur": fin.get("lifetime_p50_meur"),
+                "revenue_gap_meur": fin.get("revenue_gap_meur"),
+                "revenue_gap_pct": fin.get("revenue_gap_pct"),
+                "price_assumption": fin.get("price_assumption", ""),
+            }
+        summary.append(entry)
+    return json.dumps(summary, indent=2)
+
+
+_PARK_CHAT_CONTEXT = _build_chat_context(_data.get("parks", []))
+
+_CHAT_SYSTEM_PROMPT = (
+    "You are the NviroAerox Park Assistant — a concise solar analyst chatbot.\n\n"
+    "You have real pre-computed data for 10 German solar parks, modelled with a physics-based "
+    "engine (NOCT thermal model) and CMIP6 climate projections (delta method, 3000 Monte Carlo draws).\n\n"
+    "Key concepts:\n"
+    "- delta_pct: how much the climate-adjusted 30-year lifetime output differs from the flat-history "
+    "baseline (negative = loss vs. industry standard method)\n"
+    "- revenue_gap_meur: 30-year revenue loss vs. the industry standard (€M, negative = loss)\n"
+    "- risk_score: 0–10 physics-derived heat risk (thermal derating + Arrhenius degradation)\n"
+    "- RCP2.6 = low emissions, RCP4.5 = moderate warming, RCP8.5 = high emissions\n"
+    "- dT_30yr_c: expected temperature rise at the park by year 30 (°C)\n\n"
+    "Answer questions directly and concisely. Use **bold** for key figures. "
+    "Quote the scenario when giving forecast numbers. "
+    "If a park name is slightly misspelled, match it to the closest park and answer anyway.\n\n"
+    "PARK DATA (JSON):\n"
+    + _PARK_CHAT_CONTEXT
+)
 
 
 app = FastAPI(
@@ -185,5 +261,34 @@ def wildfire_timeseries(
     """days_very_high_fire_danger rising over time = proxy for heatwave frequency increase."""
     try:
         return client.get_wildfire_timeseries(lat, lon, from_year, to_year)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+# ── Chat endpoint ──────────────────────────────────────────────────────────────
+
+@app.post("/api/chat")
+def chat(body: dict):
+    """
+    Natural-language chat powered by Claude Haiku.
+
+    Body: {"messages": [{"role": "user"|"assistant", "content": "..."}]}
+    Returns: {"reply": "..."}
+    """
+    if not _anthropic_client:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not set in backend/.env")
+
+    messages: list = body.get("messages", [])
+    if not messages:
+        raise HTTPException(status_code=400, detail="messages array required")
+
+    try:
+        response = _anthropic_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=600,
+            system=_CHAT_SYSTEM_PROMPT,
+            messages=messages,
+        )
+        return {"reply": response.content[0].text}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))

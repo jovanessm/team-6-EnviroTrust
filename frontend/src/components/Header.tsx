@@ -12,7 +12,7 @@ export function Header() {
       <header className="header">
         <div className="header-inner">
           <Link to="/" className="logo">
-            <span className="logo-name">NviroTrust</span>
+            <span className="logo-name">NviroAerox</span>
           </Link>
           <nav className="nav">
             <Link to="/" className={pathname === '/' ? 'nav-link active' : 'nav-link'}>
