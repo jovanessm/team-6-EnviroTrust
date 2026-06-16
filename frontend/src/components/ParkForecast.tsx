@@ -895,7 +895,7 @@ export function ParkForecast({ park, onClose }: Props) {
               {/* Ledger — SSP2-4.5 P50 as headline, NPV basis */}
               <div className="opex-calc">
                 <div className="opex-calc-row">
-                  <span>NPV revenue (P50 · SSP2-4.5 · 6% WACC)</span>
+                  <span>PV of CFs (P50 · 6% WACC)</span>
                   <span>{fmtRev(s2.npvP50)}</span>
                 </div>
                 <div className="opex-calc-row opex-calc-sub">
